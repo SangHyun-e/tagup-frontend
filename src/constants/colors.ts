@@ -5,7 +5,7 @@ export const Colors = {
   surface: '#F5F5F5',
   border: '#E0E0E0',
   textSub: '#999999',
-  accentLight: '#F2FAEd',
+  accentLight: '#F2FAEC',
   success: '#2E7D32',
   fail: '#C62828',
   white: '#FFFFFF',
