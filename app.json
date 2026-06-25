@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "TagUp",
+    "slug": "tagup",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/tagup_logo_bubble.png",
+    "scheme": "tagup",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/tagup_logo_bubble.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E1E1E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sanghyune.tagup",
+      "infoPlist": {
+        "NSCameraUsageDescription": "태그업에서 프로필 사진 촬영에 사용됩니다.",
+        "NSPhotoLibraryUsageDescription": "태그업에서 이미지 전송에 사용됩니다."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/tagup_logo_bubble.png",
+        "backgroundColor": "#F2621B"
+      },
+      "package": "com.sanghyune.tagup",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/tagup_logo_bubble.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/tagup_logo_bubble.png",
+          "color": "#F2621B"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
