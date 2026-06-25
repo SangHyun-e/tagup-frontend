@@ -23,7 +23,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/tagup_logo_bubble.png",
-        "backgroundColor": "#F2621B"
+        "backgroundColor": "#6DBF45"
       },
       "package": "com.sanghyune.tagup",
       "permissions": [
@@ -44,7 +44,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/tagup_logo_bubble.png",
-          "color": "#F2621B"
+          "color": "#6DBF45"
         }
       ]
     ],
