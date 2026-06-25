@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import LogoBubble from '../../assets/images/tagup_logo_bubble.svg';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,11 +23,7 @@ export default function MainHomeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Image
-            source={require('../../assets/images/tagup_logo_bubble.png')}
-            style={styles.headerLogo}
-            resizeMode="contain"
-          />
+          <LogoBubble width={28} height={28} />
           <Text style={styles.headerTitle}>태그업</Text>
         </View>
         <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>

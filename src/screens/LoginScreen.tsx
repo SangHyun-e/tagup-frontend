@@ -3,13 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
+import LogoBubble from '../../assets/images/tagup_logo_bubble.svg';
 import { useRouter } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -70,11 +69,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoArea}>
-          <Image
-            source={require('../../assets/images/tagup_logo_bubble.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <LogoBubble width={48} height={48} />
           <Text style={styles.appName}>태그업</Text>
           <Text style={styles.slogan}>같이 보는 야구의 맛</Text>
         </View>
@@ -137,10 +132,6 @@ const styles = StyleSheet.create({
   logoArea: {
     alignItems: 'center',
     gap: 8,
-  },
-  logo: {
-    width: 48,
-    height: 48,
   },
   appName: {
     fontSize: 20,

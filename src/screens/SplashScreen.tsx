@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import LogoBubble from '../../assets/images/tagup_logo_bubble.svg';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -37,11 +38,7 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require('../../assets/images/tagup_logo_bubble.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
+      <LogoBubble width={80} height={80} />
       <Text style={styles.title}>태그업</Text>
       <Text style={styles.slogan}>같이 보는 야구의 맛</Text>
     </View>
@@ -55,10 +52,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-  },
-  logo: {
-    width: 80,
-    height: 80,
   },
   title: {
     fontSize: 24,
