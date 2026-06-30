@@ -6,14 +6,13 @@ import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../src/lib/firebase';
 import { useAuthStore } from '../../src/store/useAuthStore';
-import { KBO_TEAMS } from '../../src/constants/teams';
 import { Colors } from '../../src/constants/colors';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { appUser, reset } = useAuthStore();
 
-  const myTeam = KBO_TEAMS.find((t) => t.id === appUser?.teamId);
+  const myTeam = appUser?.team ?? null;
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -37,15 +36,25 @@ export default function ProfileScreen() {
           <Text style={styles.email}>{appUser?.email ?? '-'}</Text>
         </View>
 
-        {myTeam && (
-          <View style={styles.teamRow}>
-            <Text style={styles.teamEmoji}>{myTeam.emoji}</Text>
-            <Text style={styles.teamName}>{myTeam.name}</Text>
-            <TouchableOpacity style={styles.changeButton}>
-              <Text style={styles.changeButtonText}>변경</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <View style={styles.teamRow}>
+          {myTeam ? (
+            <>
+              <Text style={styles.teamEmoji}>{myTeam.emoji}</Text>
+              <Text style={styles.teamName}>{myTeam.name}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.teamEmoji}>⚾</Text>
+              <Text style={[styles.teamName, { color: Colors.textSub }]}>구단 미설정</Text>
+            </>
+          )}
+          <TouchableOpacity
+            style={styles.changeButton}
+            onPress={() => router.push('/team-select')}
+          >
+            <Text style={styles.changeButtonText}>{myTeam ? '변경' : '설정'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
