@@ -26,12 +26,10 @@ export default function SplashScreen() {
     });
 
     Promise.all([minDelay, authCheck]).then(([, { isLoggedIn, isFirstLaunch }]) => {
-      if (isLoggedIn) {
-        router.replace('/(tabs)');
-      } else if (isFirstLaunch) {
-        router.replace('/onboarding');
+      if (!isLoggedIn) {
+        router.replace(isFirstLaunch ? '/onboarding' : '/login');
       } else {
-        router.replace('/login');
+        router.replace('/(tabs)');
       }
     });
   }, []);

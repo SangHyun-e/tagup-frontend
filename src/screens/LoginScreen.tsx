@@ -43,15 +43,20 @@ export default function LoginScreen() {
     try {
       const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
       setFirebaseUser(credential.user);
-      const appUser = await api.get<User>('/api/users/me');
-      setAppUser(appUser);
+      try {
+        const appUser = await api.get<User>('/api/users/me');
+        setAppUser(appUser);
+      } catch {
+        // 백엔드 미연결 시에도 Firebase 인증만으로 진입 허용
+      }
       router.replace('/(tabs)');
     } catch (err: any) {
       const code = err.code as string;
+      console.error('[Login Error]', code, err.message, err);
       if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
         setErrors({ general: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       } else {
-        setErrors({ general: '로그인 중 오류가 발생했습니다.' });
+        setErrors({ general: `오류: ${code ?? err.message ?? '알 수 없음'}` });
       }
     } finally {
       setLoading(false);
