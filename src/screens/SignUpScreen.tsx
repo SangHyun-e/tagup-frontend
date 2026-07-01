@@ -65,7 +65,7 @@ export default function SignUpScreen() {
       await updateProfile(credential.user, { displayName: nickname.trim() });
       setFirebaseUser(credential.user);
 
-      const appUser = await api.post<User>('/api/users', {
+      const appUser = await api.post<User>('/api/v1/auth/sync', {
         nickname: nickname.trim(),
         teamId: selectedTeam!.id,
       });
