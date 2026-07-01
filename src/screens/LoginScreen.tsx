@@ -44,10 +44,11 @@ export default function LoginScreen() {
       const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
       setFirebaseUser(credential.user);
       try {
-        const appUser = await api.get<User>('/api/users/me');
+        const nickname = credential.user.displayName ?? email.trim().split('@')[0];
+        const appUser = await api.post<User>('/api/v1/auth/sync', { nickname });
         setAppUser(appUser);
       } catch {
-        // 백엔드 미연결 시에도 Firebase 인증만으로 진입 허용
+        // sync 실패 시에도 Firebase 인증만으로 진입 허용
       }
       router.replace('/(tabs)');
     } catch (err: any) {
