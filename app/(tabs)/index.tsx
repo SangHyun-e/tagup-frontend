@@ -21,8 +21,8 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRoomStore } from '../../src/store/useRoomStore';
 import { api } from '../../src/lib/api';
 import { Colors } from '../../src/constants/colors';
-import { KBO_TEAMS } from '../../src/constants/teams';
 import { Room, Game } from '../../src/types';
+import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
 
 type ModalType = 'create' | 'join' | null;
 
@@ -33,9 +33,6 @@ function getRoomColor(name: string): string {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
 
-function getTeamEmoji(shortName: string): string {
-  return KBO_TEAMS.find((t) => t.shortName === shortName)?.emoji ?? '⚾';
-}
 
 function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?: string }) {
   const live = game.status === 'LIVE';
@@ -80,12 +77,9 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
       <View style={styles.heroTeams}>
         {/* 원정 */}
         <View style={styles.heroTeam}>
-          <View style={[styles.heroTeamBadge, hasMyTeam && myTeamIsAway && styles.heroTeamBadgeMy]}>
-            <Text style={[styles.heroTeamBadgeText, hasMyTeam && myTeamIsAway && styles.heroTeamBadgeTextMy]}>
-              {game.awayTeam.shortName}
-            </Text>
+          <View style={[styles.emblemRing, hasMyTeam && myTeamIsAway && styles.emblemRingMy]}>
+            <TeamEmblem shortName={game.awayTeam.shortName} size={64} />
           </View>
-          <Text style={styles.heroEmoji}>{game.awayTeam.emoji ?? getTeamEmoji(game.awayTeam.shortName)}</Text>
           {hasMyTeam && myTeamIsAway && (
             <View style={styles.myTeamTag}><Text style={styles.myTeamTagText}>내 팀</Text></View>
           )}
@@ -112,12 +106,9 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
 
         {/* 홈 */}
         <View style={styles.heroTeam}>
-          <View style={[styles.heroTeamBadge, hasMyTeam && myTeamIsHome && styles.heroTeamBadgeMy]}>
-            <Text style={[styles.heroTeamBadgeText, hasMyTeam && myTeamIsHome && styles.heroTeamBadgeTextMy]}>
-              {game.homeTeam.shortName}
-            </Text>
+          <View style={[styles.emblemRing, hasMyTeam && myTeamIsHome && styles.emblemRingMy]}>
+            <TeamEmblem shortName={game.homeTeam.shortName} size={64} />
           </View>
-          <Text style={styles.heroEmoji}>{game.homeTeam.emoji ?? getTeamEmoji(game.homeTeam.shortName)}</Text>
           {hasMyTeam && myTeamIsHome && (
             <View style={styles.myTeamTag}><Text style={styles.myTeamTagText}>내 팀</Text></View>
           )}
@@ -427,15 +418,10 @@ const styles = StyleSheet.create({
 
   heroTeams: { flexDirection: 'row', alignItems: 'center' },
   heroTeam: { flex: 1, alignItems: 'center', gap: 6 },
-  heroTeamBadge: {
-    width: 52, height: 52, borderRadius: 18,
-    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: Colors.border,
+  emblemRing: {
+    borderRadius: 999, borderWidth: 2, borderColor: 'transparent', padding: 2,
   },
-  heroTeamBadgeMy: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  heroTeamBadgeText: { fontSize: 14, fontWeight: '900', color: Colors.textSub },
-  heroTeamBadgeTextMy: { color: '#fff' },
-  heroEmoji: { fontSize: 22 },
+  emblemRingMy: { borderColor: Colors.primary },
   myTeamTag: {
     backgroundColor: '#16181D', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
   },
