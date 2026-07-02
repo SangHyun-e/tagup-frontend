@@ -34,7 +34,8 @@ export interface Game {
   awayScore: number | null;
   stadium: string;
   gameDate: string;
-  startTime: string;
+  gameTime?: string;
+  startTime?: string;
   status: 'SCHEDULED' | 'LIVE' | 'FINAL' | 'FINISHED' | 'CANCELLED';
   inning: number | null;
 }
@@ -44,6 +45,7 @@ export interface ChatMessage {
   roomId: string;
   senderId: string;
   senderNickname: string;
+  senderTeamEmoji?: string;
   content: string;
   type: 'TEXT' | 'IMAGE' | 'BET';
   imageUrl?: string;
