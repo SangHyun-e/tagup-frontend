@@ -35,7 +35,7 @@ export interface Game {
   stadium: string;
   gameDate: string;
   startTime: string;
-  status: 'SCHEDULED' | 'LIVE' | 'FINAL' | 'CANCELLED';
+  status: 'SCHEDULED' | 'LIVE' | 'FINAL' | 'FINISHED' | 'CANCELLED';
   inning: number | null;
 }
 

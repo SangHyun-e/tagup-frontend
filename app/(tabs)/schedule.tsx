@@ -45,20 +45,27 @@ const STATUS_LABEL: Record<string, string> = {
   SCHEDULED: '예정',
   LIVE: 'LIVE',
   FINAL: '종료',
+  FINISHED: '종료',
   CANCELLED: '취소',
 };
 
 const STATUS_COLOR: Record<string, string> = {
   SCHEDULED: Colors.textSub,
   LIVE: Colors.fail,
-  FINAL: Colors.dark,
+  FINAL: Colors.placeholder,
+  FINISHED: Colors.placeholder,
   CANCELLED: Colors.placeholder,
 };
 
 function GameCard({ game }: { game: Game }) {
   const live = game.status === 'LIVE';
-  const ended = game.status === 'FINAL';
+  const ended = game.status === 'FINAL' || game.status === 'FINISHED';
   const showScore = live || ended;
+
+  const awayScore = game.awayScore ?? 0;
+  const homeScore = game.homeScore ?? 0;
+  const awayWin = ended && awayScore > homeScore;
+  const homeWin = ended && homeScore > awayScore;
 
   return (
     <View style={[styles.card, live && styles.cardLive]}>
@@ -66,38 +73,43 @@ function GameCard({ game }: { game: Game }) {
         {/* 원정 */}
         <View style={styles.teamBlock}>
           <Text style={styles.emoji}>{game.awayTeam.emoji}</Text>
-          <Text style={styles.shortName}>{game.awayTeam.shortName}</Text>
-          {showScore && (
-            <Text style={[styles.score, live && styles.scoreLive]}>
-              {game.awayScore ?? 0}
-            </Text>
-          )}
+          <Text style={[styles.shortName, awayWin && styles.winnerName]}>
+            {game.awayTeam.shortName}
+          </Text>
         </View>
 
         {/* 가운데 */}
         <View style={styles.center}>
+          {showScore ? (
+            <View style={styles.scoreRow}>
+              <Text style={[styles.scoreNum, awayWin && styles.scoreWinner]}>
+                {awayScore}
+              </Text>
+              <Text style={styles.scoreSep}>:</Text>
+              <Text style={[styles.scoreNum, homeWin && styles.scoreWinner]}>
+                {homeScore}
+              </Text>
+            </View>
+          ) : (
+            game.startTime && (
+              <Text style={styles.time}>{game.startTime.slice(0, 5)}</Text>
+            )
+          )}
           <View style={[styles.badge, { borderColor: STATUS_COLOR[game.status] }]}>
             <Text style={[styles.badgeText, { color: STATUS_COLOR[game.status] }]}>
-              {STATUS_LABEL[game.status]}
+              {live && game.inning != null
+                ? `${game.inning}이닝`
+                : STATUS_LABEL[game.status]}
             </Text>
           </View>
-          {game.status === 'SCHEDULED' && game.startTime && (
-            <Text style={styles.time}>{game.startTime.slice(0, 5)}</Text>
-          )}
-          {live && game.inning != null && (
-            <Text style={styles.inning}>{game.inning}이닝</Text>
-          )}
         </View>
 
         {/* 홈 */}
         <View style={[styles.teamBlock, styles.homeBlock]}>
-          {showScore && (
-            <Text style={[styles.score, live && styles.scoreLive]}>
-              {game.homeScore ?? 0}
-            </Text>
-          )}
-          <Text style={styles.shortName}>{game.homeTeam.shortName}</Text>
           <Text style={styles.emoji}>{game.homeTeam.emoji}</Text>
+          <Text style={[styles.shortName, homeWin && styles.winnerName]}>
+            {game.homeTeam.shortName}
+          </Text>
         </View>
       </View>
 
@@ -106,10 +118,9 @@ function GameCard({ game }: { game: Game }) {
   );
 }
 
-const DATE_TABS = buildDateTabs();
-
 export default function ScheduleScreen() {
   const todayStr = formatDate(new Date());
+  const DATE_TABS = buildDateTabs();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
@@ -147,6 +158,7 @@ export default function ScheduleScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.dateTabsScroll}
         contentContainerStyle={styles.dateTabs}
       >
         {DATE_TABS.map(({ label, sub, dateStr }) => {
@@ -202,11 +214,18 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 15, fontWeight: '800', color: Colors.dark },
 
-  dateTabs: { paddingHorizontal: 12, paddingVertical: 10, gap: 6 },
+  dateTabsScroll: { flexGrow: 0, flexShrink: 0 },
+  dateTabs: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+    alignItems: 'center',
+  },
   dateTab: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    height: 52,
     borderRadius: 10,
     backgroundColor: Colors.surface,
     minWidth: 52,
@@ -233,12 +252,15 @@ const styles = StyleSheet.create({
   cardLive: { borderColor: Colors.fail },
   teams: { flexDirection: 'row', alignItems: 'center' },
   teamBlock: { flex: 1, alignItems: 'center', gap: 4 },
-  homeBlock: { alignItems: 'center' },
+  homeBlock: { flex: 1, alignItems: 'center' },
   emoji: { fontSize: 26 },
-  shortName: { fontSize: 13, fontWeight: '700', color: Colors.dark },
-  score: { fontSize: 22, fontWeight: '800', color: Colors.dark },
-  scoreLive: { color: Colors.fail },
-  center: { flex: 0, alignItems: 'center', gap: 4, paddingHorizontal: 12 },
+  shortName: { fontSize: 13, fontWeight: '600', color: Colors.dark },
+  winnerName: { fontWeight: '800', color: Colors.dark },
+  center: { alignItems: 'center', gap: 6, paddingHorizontal: 8 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scoreNum: { fontSize: 22, fontWeight: '600', color: Colors.textSub, minWidth: 24, textAlign: 'center' },
+  scoreWinner: { fontWeight: '800', color: Colors.dark },
+  scoreSep: { fontSize: 16, fontWeight: '700', color: Colors.placeholder },
   badge: {
     borderWidth: 1.5,
     borderRadius: 6,
@@ -246,7 +268,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  time: { fontSize: 13, fontWeight: '600', color: Colors.dark },
-  inning: { fontSize: 12, color: Colors.textSub },
+  time: { fontSize: 16, fontWeight: '700', color: Colors.dark },
   stadium: { fontSize: 12, color: Colors.textSub, textAlign: 'center' },
 });
