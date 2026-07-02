@@ -27,6 +27,7 @@ export default function SplashScreen() {
         if (user) {
           try {
             const nickname = user.displayName ?? user.email?.split('@')[0] ?? 'user';
+            // teamId 전달하지 않아 BE가 기존 팀 정보를 덮어쓰지 않도록 nickname만 전달
             const appUser = await api.post<User>('/api/v1/auth/sync', { nickname });
             setAppUser(appUser);
           } catch {

@@ -19,7 +19,7 @@ import { Button } from '../components/common/Button';
 import { InputField } from '../components/common/InputField';
 import { KBO_TEAMS, KboTeam } from '../constants/teams';
 import { Colors } from '../constants/colors';
-import { User } from '../types';
+import { User, Team } from '../types';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -69,7 +69,12 @@ export default function SignUpScreen() {
         nickname: nickname.trim(),
         teamId: selectedTeam!.id,
       });
-      setAppUser(appUser);
+      // BE sync 응답에 team 객체가 없는 경우 로컬 선택값으로 채움
+      setAppUser({
+        ...appUser,
+        teamId: selectedTeam!.id,
+        team: appUser.team ?? (selectedTeam as unknown as Team),
+      });
       router.replace('/(tabs)');
     } catch (err: any) {
       const code = err.code as string;
