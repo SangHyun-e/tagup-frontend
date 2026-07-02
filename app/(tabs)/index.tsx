@@ -124,7 +124,7 @@ export default function MainHomeScreen() {
           <LogoBubble width={28} height={28} />
           <Text style={styles.headerTitle}>태그업</Text>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={styles.iconButton}>
           <Ionicons name="person-circle-outline" size={28} color={Colors.dark} />
         </TouchableOpacity>
       </View>
