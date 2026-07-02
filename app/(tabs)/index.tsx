@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   Modal,
   TextInput,
   Alert,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import LogoBubble from '../../assets/images/tagup_logo_bubble.svg';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -21,21 +21,138 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRoomStore } from '../../src/store/useRoomStore';
 import { api } from '../../src/lib/api';
 import { Colors } from '../../src/constants/colors';
-import { Room } from '../../src/types';
+import { KBO_TEAMS } from '../../src/constants/teams';
+import { Room, Game } from '../../src/types';
 
 type ModalType = 'create' | 'join' | null;
 
-function RoomCard({ room, onPress }: { room: Room; onPress: () => void }) {
+const AVATAR_COLORS = ['#4C82F7', '#FF6FA5', '#34C759', '#5B8DEF', '#FF9F0A', '#AF52DE', '#FC4E00'];
+function getRoomColor(name: string): string {
+  let sum = 0;
+  for (const c of name) sum += c.charCodeAt(0);
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+}
+
+function getTeamEmoji(shortName: string): string {
+  return KBO_TEAMS.find((t) => t.shortName === shortName)?.emoji ?? '⚾';
+}
+
+function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?: string }) {
+  const live = game.status === 'LIVE';
+  const ended = game.status === 'FINAL' || game.status === 'FINISHED';
+  const awayScore = game.awayScore ?? 0;
+  const homeScore = game.homeScore ?? 0;
+
+  const myTeamIsAway = game.awayTeam.shortName === myTeamShortName;
+  const myTeamIsHome = game.homeTeam.shortName === myTeamShortName;
+  const hasMyTeam = myTeamIsAway || myTeamIsHome;
+
+  const myTeam = myTeamIsAway ? game.awayTeam : game.homeTeam;
+  const oppTeam = myTeamIsAway ? game.homeTeam : game.awayTeam;
+  const myScore = myTeamIsAway ? awayScore : homeScore;
+  const oppScore = myTeamIsAway ? homeScore : awayScore;
+  const myWin = ended && myScore > oppScore;
+
+  const time = ((game as any).gameTime ?? game.startTime ?? '').slice(0, 5);
+
   return (
-    <TouchableOpacity style={styles.roomCard} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.roomIcon}>
-        <Ionicons name="chatbubbles" size={22} color={Colors.primary} />
+    <View style={[styles.heroCard, live && styles.heroCardLive]}>
+      {/* 상단 상태 */}
+      <View style={styles.heroTop}>
+        {live ? (
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.livePillText}>LIVE · {game.inning != null ? `${game.inning}이닝` : ''}</Text>
+          </View>
+        ) : ended ? (
+          <View style={styles.endedPill}>
+            <Text style={styles.endedPillText}>경기 종료</Text>
+          </View>
+        ) : (
+          <View style={styles.prePill}>
+            <Text style={styles.prePillText}>오늘 {time}</Text>
+          </View>
+        )}
+        <Text style={styles.heroVenue}>{game.stadium}</Text>
       </View>
-      <View style={styles.roomInfo}>
-        <Text style={styles.roomName}>{room.name}</Text>
-        <Text style={styles.roomMeta}>태그코드: {room.tagCode} · {room.memberCount}명</Text>
+
+      {/* 팀 & 스코어 */}
+      <View style={styles.heroTeams}>
+        {/* 원정 */}
+        <View style={styles.heroTeam}>
+          <View style={[styles.heroTeamBadge, hasMyTeam && myTeamIsAway && styles.heroTeamBadgeMy]}>
+            <Text style={[styles.heroTeamBadgeText, hasMyTeam && myTeamIsAway && styles.heroTeamBadgeTextMy]}>
+              {game.awayTeam.shortName}
+            </Text>
+          </View>
+          <Text style={styles.heroEmoji}>{game.awayTeam.emoji ?? getTeamEmoji(game.awayTeam.shortName)}</Text>
+          {hasMyTeam && myTeamIsAway && (
+            <View style={styles.myTeamTag}><Text style={styles.myTeamTagText}>내 팀</Text></View>
+          )}
+        </View>
+
+        {/* 스코어 or VS */}
+        <View style={styles.heroCenter}>
+          {(live || ended) ? (
+            <View style={styles.heroScoreRow}>
+              <Text style={[styles.heroScoreNum, myTeamIsAway && myWin && styles.heroScoreWin,
+                !myTeamIsAway && !myWin && ended && styles.heroScoreLose]}>
+                {awayScore}
+              </Text>
+              <Text style={styles.heroScoreSep}>:</Text>
+              <Text style={[styles.heroScoreNum, myTeamIsHome && myWin && styles.heroScoreWin,
+                !myTeamIsHome && !myWin && ended && styles.heroScoreLose]}>
+                {homeScore}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.heroVS}>VS</Text>
+          )}
+        </View>
+
+        {/* 홈 */}
+        <View style={styles.heroTeam}>
+          <View style={[styles.heroTeamBadge, hasMyTeam && myTeamIsHome && styles.heroTeamBadgeMy]}>
+            <Text style={[styles.heroTeamBadgeText, hasMyTeam && myTeamIsHome && styles.heroTeamBadgeTextMy]}>
+              {game.homeTeam.shortName}
+            </Text>
+          </View>
+          <Text style={styles.heroEmoji}>{game.homeTeam.emoji ?? getTeamEmoji(game.homeTeam.shortName)}</Text>
+          {hasMyTeam && myTeamIsHome && (
+            <View style={styles.myTeamTag}><Text style={styles.myTeamTagText}>내 팀</Text></View>
+          )}
+        </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={Colors.placeholder} />
+    </View>
+  );
+}
+
+function RoomListItem({ room, liveGameIds, onPress }: { room: Room; liveGameIds: Set<number>; onPress: () => void }) {
+  const isLive = room.gameId != null && liveGameIds.has(room.gameId);
+  const color = getRoomColor(room.name);
+  const initial = room.name.slice(0, 1);
+
+  return (
+    <TouchableOpacity style={styles.roomItem} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.roomAvatarWrap}>
+        <View style={[styles.roomAvatar, { backgroundColor: color }]}>
+          <Text style={styles.roomAvatarText}>{initial}</Text>
+        </View>
+        {isLive && (
+          <View style={styles.roomLiveDot}>
+            <Text style={styles.roomLiveDotText}>LIVE</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.roomItemInfo}>
+        <View style={styles.roomItemRow}>
+          <Text style={styles.roomItemName} numberOfLines={1}>{room.name}</Text>
+          <Text style={styles.roomItemMeta}>{room.memberCount}</Text>
+        </View>
+        <Text style={styles.roomItemSub} numberOfLines={1}>
+          태그코드 {room.tagCode}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -45,29 +162,38 @@ export default function MainHomeScreen() {
   const { appUser, reset } = useAuthStore();
   const { rooms, setRooms, addRoom } = useRoomStore();
 
+  const [todayGames, setTodayGames] = useState<Game[]>([]);
   const [modal, setModal] = useState<ModalType>(null);
   const [roomName, setRoomName] = useState('');
   const [tagCode, setTagCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchRooms = useCallback(async (silent = false) => {
+  const myTeamShortName = appUser?.team?.shortName;
+  const liveGameIds = new Set(todayGames.filter((g) => g.status === 'LIVE').map((g) => g.id));
+
+  // 내 팀 경기를 맨 앞으로
+  const sortedGames = myTeamShortName
+    ? [...todayGames].sort((a) =>
+        a.awayTeam.shortName === myTeamShortName || a.homeTeam.shortName === myTeamShortName ? -1 : 1
+      )
+    : todayGames;
+
+  const fetchAll = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
-      const data = await api.get<Room[]>('/api/v1/rooms');
-      setRooms(data ?? []);
-    } catch {
-      // 네트워크 오류 시 기존 목록 유지
+      const [roomData, gameData] = await Promise.all([
+        api.get<Room[]>('/api/v1/rooms').catch(() => [] as Room[]),
+        api.get<Game[]>('/api/v1/games/today').catch(() => [] as Game[]),
+      ]);
+      setRooms(roomData ?? []);
+      setTodayGames(gameData ?? []);
     } finally {
       setRefreshing(false);
     }
   }, [setRooms]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchRooms(true);
-    }, [fetchRooms]),
-  );
+  useFocusEffect(useCallback(() => { fetchAll(true); }, [fetchAll]));
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -75,11 +201,7 @@ export default function MainHomeScreen() {
     router.replace('/login');
   };
 
-  const closeModal = () => {
-    setModal(null);
-    setRoomName('');
-    setTagCode('');
-  };
+  const closeModal = () => { setModal(null); setRoomName(''); setTagCode(''); };
 
   const handleCreateRoom = async () => {
     const name = roomName.trim();
@@ -92,9 +214,7 @@ export default function MainHomeScreen() {
       router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name } });
     } catch (e: any) {
       Alert.alert('오류', e.message ?? '방 생성에 실패했어요.');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   const handleJoinRoom = async () => {
@@ -107,21 +227,19 @@ export default function MainHomeScreen() {
       closeModal();
       router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name } });
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '입장에 실패했어요. 태그코드를 확인해주세요.');
-    } finally {
-      setSubmitting(false);
-    }
+      Alert.alert('오류', e.message ?? '태그코드를 확인해주세요.');
+    } finally { setSubmitting(false); }
   };
 
-  const navigateToChat = (room: Room) => {
+  const navigateToChat = (room: Room) =>
     router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name } });
-  };
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* 헤더 */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <LogoBubble width={28} height={28} />
+          <LogoBubble width={26} height={26} />
           <Text style={styles.headerTitle}>태그업</Text>
         </View>
         <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={styles.iconButton}>
@@ -129,63 +247,75 @@ export default function MainHomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.greeting}>
-          안녕하세요, {appUser?.nickname ?? '야구팬'}님! ⚾
-        </Text>
-        <Text style={styles.subtitle}>내 더그아웃을 만들어 친구를 태그해보세요.</Text>
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryButton]}
-            onPress={() => setModal('create')}
-          >
-            <Ionicons name="flash" size={18} color={Colors.white} />
-            <Text style={styles.primaryButtonText}>태그업 하기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryButton]}
-            onPress={() => setModal('join')}
-          >
-            <Text style={styles.secondaryButtonText}>태그코드 입장</Text>
-          </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchAll()} tintColor={Colors.primary} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 인사말 */}
+        <View style={styles.greetingRow}>
+          <Text style={styles.greeting}>
+            {appUser?.team?.emoji ? `${appUser.team.emoji} ` : ''}안녕하세요,{' '}
+            <Text style={styles.greetingName}>{appUser?.nickname ?? '야구팬'}</Text>님!
+          </Text>
+          <Text style={styles.greetingSub}>오늘도 콜?</Text>
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>내 더그아웃</Text>
-          <Text style={styles.sectionCount}>{rooms.length}</Text>
-        </View>
-
-        {rooms.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>⚾</Text>
-            <Text style={styles.emptyText}>아직 참여 중인 더그아웃이 없어요.</Text>
-            <Text style={styles.emptySubtext}>태그업 하기로 새 더그아웃을 만들어보세요!</Text>
+        {/* 오늘의 경기 */}
+        {sortedGames.length > 0 && (
+          <View>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>오늘의 경기</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gameScroll}>
+              {sortedGames.map((g) => (
+                <HeroGameCard key={g.id} game={g} myTeamShortName={myTeamShortName} />
+              ))}
+            </ScrollView>
           </View>
-        ) : (
-          <FlatList
-            data={rooms}
-            keyExtractor={(r) => String(r.id)}
-            renderItem={({ item }) => (
-              <RoomCard room={item} onPress={() => navigateToChat(item)} />
-            )}
-            contentContainerStyle={styles.roomList}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => fetchRooms()}
-                tintColor={Colors.primary}
-              />
-            }
-            scrollEnabled={false}
-          />
         )}
-      </View>
+
+        {/* 내 더그아웃 */}
+        <View>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>내 더그아웃</Text>
+            <TouchableOpacity style={styles.addButton} onPress={() => setModal('create')}>
+              <Ionicons name="add" size={14} color={Colors.primary} />
+              <Text style={styles.addButtonText}>태그업 하기</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.tagCodeRow}>
+            <TouchableOpacity style={styles.tagCodeBtn} onPress={() => setModal('join')}>
+              <Ionicons name="key-outline" size={15} color={Colors.textSub} />
+              <Text style={styles.tagCodeBtnText}>태그코드로 입장</Text>
+            </TouchableOpacity>
+          </View>
+
+          {rooms.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>⚾</Text>
+              <Text style={styles.emptyText}>참여 중인 더그아웃이 없어요</Text>
+              <Text style={styles.emptySubtext}>태그업 하기로 새 더그아웃을 만들어보세요!</Text>
+            </View>
+          ) : (
+            <View style={styles.roomList}>
+              {rooms.map((room, i) => (
+                <React.Fragment key={room.id}>
+                  <RoomListItem room={room} liveGameIds={liveGameIds} onPress={() => navigateToChat(room)} />
+                  {i < rooms.length - 1 && <View style={styles.divider} />}
+                </React.Fragment>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
 
       {/* 방 만들기 모달 */}
       <Modal visible={modal === 'create'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>새 더그아웃 만들기</Text>
             <TextInput
               style={styles.modalInput}
@@ -205,11 +335,7 @@ export default function MainHomeScreen() {
                 onPress={handleCreateRoom}
                 disabled={!roomName.trim() || submitting}
               >
-                {submitting ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <Text style={styles.modalConfirmText}>만들기</Text>
-                )}
+                {submitting ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.modalConfirmText}>만들기</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -220,13 +346,14 @@ export default function MainHomeScreen() {
       <Modal visible={modal === 'join'} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>태그코드로 입장</Text>
             <TextInput
-              style={[styles.modalInput, styles.codeInput]}
-              placeholder="6자리 태그코드"
+              style={styles.modalInput}
+              placeholder="태그코드 6자리"
               placeholderTextColor={Colors.placeholder}
               value={tagCode}
-              onChangeText={(v) => setTagCode(v.toUpperCase())}
+              onChangeText={setTagCode}
               maxLength={6}
               autoCapitalize="characters"
               autoFocus
@@ -236,15 +363,11 @@ export default function MainHomeScreen() {
                 <Text style={styles.modalCancelText}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalConfirm, (tagCode.trim().length !== 6 || submitting) && styles.modalConfirmDisabled]}
+                style={[styles.modalConfirm, (!tagCode.trim() || submitting) && styles.modalConfirmDisabled]}
                 onPress={handleJoinRoom}
-                disabled={tagCode.trim().length !== 6 || submitting}
+                disabled={!tagCode.trim() || submitting}
               >
-                {submitting ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <Text style={styles.modalConfirmText}>입장</Text>
-                )}
+                {submitting ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.modalConfirmText}>입장</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -257,109 +380,139 @@ export default function MainHomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: Colors.dark },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-  },
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 24, gap: 16 },
-  greeting: { fontSize: 18, fontWeight: '700', color: Colors.dark },
-  subtitle: { fontSize: 13, color: Colors.textSub, marginTop: -8 },
-  buttonRow: { flexDirection: 'row', gap: 10 },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    paddingVertical: 14,
-    gap: 6,
-  },
-  primaryButton: { backgroundColor: Colors.primary },
-  secondaryButton: { backgroundColor: Colors.surface },
-  primaryButtonText: { fontSize: 14, fontWeight: '700', color: Colors.white },
-  secondaryButtonText: { fontSize: 14, fontWeight: '700', color: Colors.dark },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.dark },
-  sectionCount: { fontSize: 13, color: Colors.textSub },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyEmoji: { fontSize: 48 },
-  emptyText: { fontSize: 15, fontWeight: '600', color: Colors.dark },
-  emptySubtext: { fontSize: 13, color: Colors.textSub, textAlign: 'center' },
-  roomList: { gap: 10 },
-  roomCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-  },
-  roomIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Colors.accentLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roomInfo: { flex: 1, gap: 2 },
-  roomName: { fontSize: 14, fontWeight: '700', color: Colors.dark },
-  roomMeta: { fontSize: 12, color: Colors.textSub },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: Colors.dark },
+  iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+  scroll: { paddingBottom: 60, gap: 24, paddingTop: 20 },
+
+  greetingRow: { paddingHorizontal: 20, gap: 2 },
+  greeting: { fontSize: 22, fontWeight: '700', color: Colors.dark },
+  greetingName: { fontWeight: '900' },
+  greetingSub: { fontSize: 13, color: Colors.textSub, fontWeight: '600', marginTop: 2 },
+
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.dark },
+
+  // 오늘의 경기
+  gameScroll: { paddingHorizontal: 20, gap: 12 },
+  heroCard: {
+    width: 220, backgroundColor: Colors.white ?? '#fff',
+    borderRadius: 24, padding: 16, gap: 12,
+    borderWidth: 1.5, borderColor: Colors.border,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
+  heroCardLive: { borderColor: Colors.fail },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  livePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#16181D', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+  },
+  liveDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: '#FF3B30' },
+  livePillText: { fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  prePill: {
+    backgroundColor: `${Colors.primary}18`, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+  },
+  prePillText: { fontSize: 11, fontWeight: '800', color: Colors.primary },
+  endedPill: {
+    backgroundColor: Colors.surface, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+  },
+  endedPillText: { fontSize: 11, fontWeight: '700', color: Colors.textSub },
+  heroVenue: { fontSize: 11, fontWeight: '700', color: Colors.placeholder },
+
+  heroTeams: { flexDirection: 'row', alignItems: 'center' },
+  heroTeam: { flex: 1, alignItems: 'center', gap: 6 },
+  heroTeamBadge: {
+    width: 52, height: 52, borderRadius: 18,
+    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: Colors.border,
+  },
+  heroTeamBadgeMy: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  heroTeamBadgeText: { fontSize: 14, fontWeight: '900', color: Colors.textSub },
+  heroTeamBadgeTextMy: { color: '#fff' },
+  heroEmoji: { fontSize: 22 },
+  myTeamTag: {
+    backgroundColor: '#16181D', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
+  },
+  myTeamTagText: { fontSize: 9, fontWeight: '800', color: '#fff' },
+
+  heroCenter: { flex: 0, alignItems: 'center', paddingHorizontal: 6 },
+  heroScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroScoreNum: { fontSize: 36, fontWeight: '900', color: Colors.dark, minWidth: 32, textAlign: 'center' },
+  heroScoreWin: { color: Colors.primary },
+  heroScoreLose: { color: Colors.placeholder },
+  heroScoreSep: { fontSize: 20, color: Colors.border, marginTop: 4 },
+  heroVS: { fontSize: 22, fontWeight: '900', color: Colors.border },
+
+  // 내 더그아웃
+  addButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: `${Colors.primary}14`, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999,
+  },
+  addButtonText: { fontSize: 12, fontWeight: '800', color: Colors.primary },
+  tagCodeRow: { paddingHorizontal: 20, marginBottom: 12 },
+  tagCodeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  tagCodeBtnText: { fontSize: 13, fontWeight: '600', color: Colors.textSub },
+
+  roomList: {
+    marginHorizontal: 20, backgroundColor: Colors.background,
+    borderRadius: 20, borderWidth: 1.5, borderColor: Colors.border,
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+  },
+  roomItem: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 15 },
+  roomAvatarWrap: { position: 'relative', flexShrink: 0 },
+  roomAvatar: {
+    width: 50, height: 50, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  roomAvatarText: { fontSize: 19, fontWeight: '900', color: '#fff' },
+  roomLiveDot: {
+    position: 'absolute', bottom: -3, right: -3,
+    backgroundColor: Colors.fail, paddingHorizontal: 5, paddingVertical: 2,
+    borderRadius: 999, borderWidth: 2, borderColor: Colors.background,
+  },
+  roomLiveDotText: { fontSize: 8, fontWeight: '900', color: '#fff' },
+  roomItemInfo: { flex: 1, gap: 3 },
+  roomItemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  roomItemName: { fontSize: 15, fontWeight: '800', color: Colors.dark, flex: 1 },
+  roomItemMeta: { fontSize: 11, fontWeight: '700', color: Colors.placeholder },
+  roomItemSub: { fontSize: 13, color: Colors.textSub, fontWeight: '500' },
+  divider: { height: 1, backgroundColor: Colors.border, marginLeft: 78 },
+
+  emptyState: { alignItems: 'center', paddingVertical: 36, gap: 8 },
+  emptyEmoji: { fontSize: 36 },
+  emptyText: { fontSize: 14, fontWeight: '700', color: Colors.dark },
+  emptySubtext: { fontSize: 12, color: Colors.textSub, textAlign: 'center' },
+
+  // 모달
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    gap: 16,
+    backgroundColor: Colors.background, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 20, gap: 16, paddingBottom: 40,
   },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: Colors.dark },
+  modalHandle: { width: 42, height: 5, borderRadius: 999, backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 4 },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: Colors.dark, textAlign: 'center' },
   modalInput: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: Colors.dark,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.border,
+    paddingHorizontal: 14, paddingVertical: 13, fontSize: 14, color: Colors.dark,
   },
-  codeInput: { letterSpacing: 4, textAlign: 'center', fontSize: 20, fontWeight: '700' },
-  modalButtons: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalButtons: { flexDirection: 'row', gap: 10 },
   modalCancel: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
+    flex: 1, paddingVertical: 14, borderRadius: 14,
+    borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center',
   },
   modalCancelText: { fontSize: 14, fontWeight: '700', color: Colors.textSub },
-  modalConfirm: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-  },
+  modalConfirm: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center' },
   modalConfirmDisabled: { backgroundColor: Colors.placeholder },
-  modalConfirmText: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
