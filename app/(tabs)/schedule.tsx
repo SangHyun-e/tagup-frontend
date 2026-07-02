@@ -106,10 +106,9 @@ function GameCard({ game }: { game: Game }) {
   );
 }
 
-const DATE_TABS = buildDateTabs();
-
 export default function ScheduleScreen() {
   const todayStr = formatDate(new Date());
+  const DATE_TABS = buildDateTabs();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
@@ -202,7 +201,12 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 15, fontWeight: '800', color: Colors.dark },
 
-  dateTabs: { paddingHorizontal: 12, paddingVertical: 10, gap: 6 },
+  dateTabs: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+    alignItems: 'center',
+  },
   dateTab: {
     alignItems: 'center',
     paddingHorizontal: 14,
@@ -210,6 +214,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: Colors.surface,
     minWidth: 52,
+    height: 52,
+    justifyContent: 'center',
   },
   dateTabActive: { backgroundColor: Colors.primary },
   dateLabel: { fontSize: 13, fontWeight: '700', color: Colors.textSub },
