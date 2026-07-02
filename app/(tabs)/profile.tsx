@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../src/lib/firebase';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { Colors } from '../../src/constants/colors';
+import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -39,12 +40,14 @@ export default function ProfileScreen() {
         <View style={styles.teamRow}>
           {myTeam ? (
             <>
-              <Text style={styles.teamEmoji}>{myTeam.emoji}</Text>
+              <TeamEmblem shortName={myTeam.shortName} size={56} />
               <Text style={styles.teamName}>{myTeam.name}</Text>
             </>
           ) : (
             <>
-              <Text style={styles.teamEmoji}>⚾</Text>
+              <View style={styles.emblemPlaceholder}>
+                <Text style={styles.emblemPlaceholderText}>⚾</Text>
+              </View>
               <Text style={[styles.teamName, { color: Colors.textSub }]}>구단 미설정</Text>
             </>
           )}
@@ -123,9 +126,11 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
-  teamEmoji: {
-    fontSize: 28,
+  emblemPlaceholder: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
   },
+  emblemPlaceholderText: { fontSize: 26 },
   teamName: {
     flex: 1,
     fontSize: 14,
