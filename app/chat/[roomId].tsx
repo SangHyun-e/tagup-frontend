@@ -72,6 +72,7 @@ export default function ChatScreen() {
         roomId,
         senderId: firebaseUser.uid,
         senderNickname: appUser?.nickname ?? '알 수 없음',
+        senderTeamEmoji: appUser?.team?.emoji ?? null,
         content: trimmed,
         type: 'TEXT',
         createdAt: serverTimestamp(),
@@ -94,14 +95,18 @@ export default function ChatScreen() {
           <View style={styles.avatarSlot}>
             {showName && (
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{item.senderNickname.slice(0, 1)}</Text>
+                <Text style={styles.avatarText}>
+                  {item.senderTeamEmoji ?? item.senderNickname.slice(0, 1)}
+                </Text>
               </View>
             )}
           </View>
         )}
         <View style={styles.bubble}>
           {showName && (
-            <Text style={styles.sender}>{item.senderNickname}</Text>
+            <Text style={styles.sender}>
+              {item.senderTeamEmoji ? `${item.senderTeamEmoji} ${item.senderNickname}` : item.senderNickname}
+            </Text>
           )}
           <View style={[styles.bubbleInner, mine ? styles.bubbleMine : styles.bubbleOther]}>
             <Text style={[styles.msgText, mine && styles.msgTextMine]}>{item.content}</Text>
@@ -211,7 +216,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  avatarText: { fontSize: 13, fontWeight: '700', color: Colors.dark },
+  avatarText: { fontSize: 18 },
   bubble: { maxWidth: '72%' },
   sender: { fontSize: 11, color: Colors.textSub, marginBottom: 2, marginLeft: 2 },
   bubbleInner: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
