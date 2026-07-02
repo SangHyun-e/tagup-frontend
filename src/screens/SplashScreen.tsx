@@ -5,12 +5,14 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { api } from '../lib/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { Colors } from '../constants/colors';
+import { User } from '../types';
 
 export default function SplashScreen() {
   const router = useRouter();
-  const { setFirebaseUser, setLoading } = useAuthStore();
+  const { setFirebaseUser, setAppUser, setLoading } = useAuthStore();
 
   useEffect(() => {
     const minDelay = new Promise((resolve) => setTimeout(resolve, 1500));
@@ -21,6 +23,17 @@ export default function SplashScreen() {
         setFirebaseUser(user);
         setLoading(false);
         const onboarded = await AsyncStorage.getItem('onboarding_done');
+
+        if (user) {
+          try {
+            const nickname = user.displayName ?? user.email?.split('@')[0] ?? 'user';
+            const appUser = await api.post<User>('/api/v1/auth/sync', { nickname });
+            setAppUser(appUser);
+          } catch {
+            // sync 실패해도 Firebase 인증 상태로 진입 허용
+          }
+        }
+
         resolve({ isLoggedIn: !!user, isFirstLaunch: !onboarded });
       });
     });
