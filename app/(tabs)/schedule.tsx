@@ -13,11 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { api } from '../../src/lib/api';
 import { Game } from '../../src/types';
-import { KBO_TEAMS } from '../../src/constants/teams';
-
-function getTeamEmoji(shortName: string): string {
-  return KBO_TEAMS.find((t) => t.shortName === shortName)?.emoji ?? '⚾';
-}
+import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
 
 function formatDate(date: Date): string {
   const y = date.getFullYear();
@@ -77,7 +73,7 @@ function GameCard({ game }: { game: Game }) {
       <View style={styles.teams}>
         {/* 원정 */}
         <View style={styles.teamBlock}>
-          <Text style={styles.emoji}>{game.awayTeam.emoji ?? getTeamEmoji(game.awayTeam.shortName)}</Text>
+          <TeamEmblem shortName={game.awayTeam.shortName} size={62} />
           <Text style={[styles.shortName, awayWin && styles.winnerName]}>
             {game.awayTeam.shortName}
           </Text>
@@ -111,7 +107,7 @@ function GameCard({ game }: { game: Game }) {
 
         {/* 홈 */}
         <View style={[styles.teamBlock, styles.homeBlock]}>
-          <Text style={styles.emoji}>{game.homeTeam.emoji ?? getTeamEmoji(game.homeTeam.shortName)}</Text>
+          <TeamEmblem shortName={game.homeTeam.shortName} size={62} />
           <Text style={[styles.shortName, homeWin && styles.winnerName]}>
             {game.homeTeam.shortName}
           </Text>

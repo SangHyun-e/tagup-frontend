@@ -20,6 +20,7 @@ import { InputField } from '../components/common/InputField';
 import { KBO_TEAMS, KboTeam } from '../constants/teams';
 import { Colors } from '../constants/colors';
 import { User, Team } from '../types';
+import { TeamEmblem } from '../components/emblems/TeamEmblem';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -154,7 +155,7 @@ export default function SignUpScreen() {
                   onPress={() => setSelectedTeam(team)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.teamEmoji}>{team.emoji}</Text>
+                  <TeamEmblem shortName={team.shortName} size={44} />
                   <Text style={[styles.teamName, isSelected && styles.teamNameSelected]}>
                     {team.shortName}
                   </Text>
@@ -241,21 +242,18 @@ const styles = StyleSheet.create({
   },
   teamCell: {
     width: '18%',
-    aspectRatio: 1,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    borderWidth: 2,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
-    gap: 2,
+    gap: 4,
   },
   teamCellSelected: {
     borderColor: Colors.primary,
     backgroundColor: Colors.accentLight,
-  },
-  teamEmoji: {
-    fontSize: 22,
   },
   teamName: {
     fontSize: 9,
