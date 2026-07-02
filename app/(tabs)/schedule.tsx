@@ -158,6 +158,7 @@ export default function ScheduleScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.dateTabsScroll}
         contentContainerStyle={styles.dateTabs}
       >
         {DATE_TABS.map(({ label, sub, dateStr }) => {
@@ -213,11 +214,18 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 15, fontWeight: '800', color: Colors.dark },
 
-  dateTabs: { paddingHorizontal: 12, paddingVertical: 10, gap: 6 },
+  dateTabsScroll: { flexGrow: 0, flexShrink: 0 },
+  dateTabs: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+    alignItems: 'center',
+  },
   dateTab: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    height: 52,
     borderRadius: 10,
     backgroundColor: Colors.surface,
     minWidth: 52,
