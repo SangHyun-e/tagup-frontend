@@ -25,8 +25,12 @@ import {
 import { db } from '../../src/lib/firebase';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRoomStore } from '../../src/store/useRoomStore';
+import { useBetStore } from '../../src/store/useBetStore';
 import { Colors } from '../../src/constants/colors';
-import { ChatMessage } from '../../src/types';
+import { ChatMessage, Bet } from '../../src/types';
+import { BetSheet } from '../../src/components/BetSheet';
+import { api } from '../../src/lib/api';
+import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
 
 const AVATAR_COLORS = ['#4C82F7', '#FF6FA5', '#34C759', '#5B8DEF', '#FF9F0A', '#AF52DE', '#FC4E00', '#00BCD4'];
 function getAvatarColor(uid: string): string {
@@ -41,19 +45,126 @@ function formatTime(ms: number): string {
   });
 }
 
+function formatDate(str: string): string {
+  return new Date(str).toLocaleString('ko-KR', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
+type TabType = 'chat' | 'bet';
+
+const BET_STATUS_LABEL: Record<string, string> = {
+  PENDING: '대기 중',
+  ACCEPTED: '수락됨',
+  COMPLETED: '완료',
+  CANCELLED: '취소됨',
+};
+
+const BET_STATUS_COLOR: Record<string, string> = {
+  PENDING: Colors.primary,
+  ACCEPTED: '#4C82F7',
+  COMPLETED: Colors.dark,
+  CANCELLED: Colors.placeholder,
+};
+
+function BetCard({
+  bet,
+  myUserId,
+  onAccept,
+  onCancel,
+}: {
+  bet: Bet;
+  myUserId: number | undefined;
+  onAccept: (betId: number) => void;
+  onCancel: (betId: number) => void;
+}) {
+  const isProposer = bet.proposerId === myUserId;
+  const isPending = bet.status === 'PENDING';
+  const isCompleted = bet.status === 'COMPLETED';
+
+  return (
+    <View style={betStyles.card}>
+      {/* 상태 배지 */}
+      <View style={betStyles.header}>
+        <View style={[betStyles.statusBadge, { backgroundColor: `${BET_STATUS_COLOR[bet.status]}18` }]}>
+          <Text style={[betStyles.statusText, { color: BET_STATUS_COLOR[bet.status] }]}>
+            {BET_STATUS_LABEL[bet.status]}
+          </Text>
+        </View>
+        {isCompleted && bet.result && (
+          <View style={[betStyles.resultBadge, bet.result === 'SAFE' ? betStyles.safeBadge : betStyles.outBadge]}>
+            <Text style={betStyles.resultText}>{bet.result === 'SAFE' ? '⚾ SAFE' : '❌ OUT'}</Text>
+          </View>
+        )}
+        <Text style={betStyles.dateText}>{formatDate(bet.createdAt)}</Text>
+      </View>
+
+      {/* 내용 */}
+      <Text style={betStyles.content}>"{bet.content}"</Text>
+
+      {/* 팀 & 배팅 */}
+      <View style={betStyles.teamRow}>
+        {bet.betOnTeam && (
+          <View style={betStyles.teamInfo}>
+            <TeamEmblem shortName={bet.betOnTeam.shortName} size={32} />
+            <Text style={betStyles.teamName}>{bet.betOnTeam.shortName} 승리에 배팅</Text>
+          </View>
+        )}
+        {!bet.betOnTeam && (
+          <Text style={betStyles.teamName}>팀 ID {bet.betOnTeamId} 승리에 배팅</Text>
+        )}
+      </View>
+
+      {/* 제안자 정보 */}
+      <Text style={betStyles.meta}>
+        {bet.proposerNickname}이(가) 제안
+        {bet.receiverNickname ? ` · ${bet.receiverNickname}에게` : ''}
+      </Text>
+
+      {/* 액션 버튼 */}
+      {isPending && (
+        <View style={betStyles.actions}>
+          {!isProposer && (
+            <TouchableOpacity
+              style={betStyles.acceptBtn}
+              onPress={() => onAccept(bet.id)}
+              activeOpacity={0.85}
+            >
+              <Text style={betStyles.acceptBtnText}>콜!</Text>
+            </TouchableOpacity>
+          )}
+          {isProposer && (
+            <TouchableOpacity
+              style={betStyles.cancelBtn}
+              onPress={() => onCancel(bet.id)}
+              activeOpacity={0.85}
+            >
+              <Text style={betStyles.cancelBtnText}>취소</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function ChatScreen() {
   const router = useRouter();
   const { roomId, roomName } = useLocalSearchParams<{ roomId: string; roomName: string }>();
   const { firebaseUser, appUser } = useAuthStore();
   const { rooms } = useRoomStore();
+  const { bets, loading: betsLoading, fetchBets, addBet, updateBet } = useBetStore();
 
+  const [tab, setTab] = useState<TabType>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [betSheetVisible, setBetSheetVisible] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const displayName = roomName ?? rooms.find((r) => String(r.id) === roomId)?.name ?? '더그아웃';
+  const roomIdNum = Number(roomId);
 
   useEffect(() => {
     if (!roomId) return;
@@ -75,6 +186,12 @@ export default function ChatScreen() {
     return unsub;
   }, [roomId]);
 
+  useEffect(() => {
+    if (tab === 'bet' && roomIdNum) {
+      fetchBets(roomIdNum);
+    }
+  }, [tab, roomIdNum]);
+
   const sendMessage = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || !firebaseUser || !roomId) return;
@@ -94,6 +211,24 @@ export default function ChatScreen() {
       setSending(false);
     }
   }, [text, firebaseUser, appUser, roomId]);
+
+  const handleAccept = async (betId: number) => {
+    try {
+      const updated = await api.put<Bet>(`/api/v1/bets/${betId}/accept`, {});
+      updateBet(updated);
+    } catch (e: any) {
+      console.warn('accept failed', e.message);
+    }
+  };
+
+  const handleCancel = async (betId: number) => {
+    try {
+      const updated = await api.put<Bet>(`/api/v1/bets/${betId}/cancel`, {});
+      updateBet(updated);
+    } catch (e: any) {
+      console.warn('cancel failed', e.message);
+    }
+  };
 
   const isMyMessage = (msg: ChatMessage) => msg.senderId === firebaseUser?.uid;
 
@@ -162,56 +297,138 @@ export default function ChatScreen() {
         <View style={styles.backBtn} />
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={Colors.primary} />
-          </View>
-        ) : messages.length === 0 ? (
-          <View style={styles.centered}>
-            <Text style={styles.emptyEmoji}>⚾</Text>
-            <Text style={styles.emptyText}>첫 번째 메시지를 보내보세요!</Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(m) => m.id}
-            renderItem={renderMessage}
-            contentContainerStyle={styles.messageList}
-            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          />
-        )}
+      {/* 탭 스위처 */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabItem, tab === 'chat' && styles.tabItemActive]}
+          onPress={() => setTab('chat')}
+        >
+          <Text style={[styles.tabText, tab === 'chat' && styles.tabTextActive]}>채팅</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, tab === 'bet' && styles.tabItemActive]}
+          onPress={() => setTab('bet')}
+        >
+          <Text style={[styles.tabText, tab === 'bet' && styles.tabTextActive]}>내기</Text>
+          {bets.filter((b) => b.status === 'PENDING').length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>
+                {bets.filter((b) => b.status === 'PENDING').length}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
 
-        {/* 입력바 */}
-        <View style={styles.inputBar}>
-          <TouchableOpacity style={styles.callBtn} activeOpacity={0.7}>
-            <Text style={styles.callBtnText}>콜!</Text>
-          </TouchableOpacity>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="더그아웃에 메시지…"
-            placeholderTextColor={Colors.placeholder}
-            multiline
-            maxLength={500}
-            returnKeyType="send"
-            onSubmitEditing={sendMessage}
-          />
+      {/* 채팅 탭 */}
+      {tab === 'chat' && (
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          {loading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator color={Colors.primary} />
+            </View>
+          ) : messages.length === 0 ? (
+            <View style={styles.centered}>
+              <Text style={styles.emptyEmoji}>⚾</Text>
+              <Text style={styles.emptyText}>첫 번째 메시지를 보내보세요!</Text>
+            </View>
+          ) : (
+            <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={(m) => m.id}
+              renderItem={renderMessage}
+              contentContainerStyle={styles.messageList}
+              onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+            />
+          )}
+
+          {/* 입력바 */}
+          <View style={styles.inputBar}>
+            <TouchableOpacity
+              style={styles.callBtn}
+              activeOpacity={0.7}
+              onPress={() => setBetSheetVisible(true)}
+            >
+              <Text style={styles.callBtnText}>콜!</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder="더그아웃에 메시지…"
+              placeholderTextColor={Colors.placeholder}
+              multiline
+              maxLength={500}
+              returnKeyType="send"
+              onSubmitEditing={sendMessage}
+            />
+            <TouchableOpacity
+              style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
+              onPress={sendMessage}
+              disabled={!text.trim() || sending}
+            >
+              <Ionicons name="arrow-up" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      )}
+
+      {/* 내기 탭 */}
+      {tab === 'bet' && (
+        <View style={styles.flex}>
+          {betsLoading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator color={Colors.primary} />
+            </View>
+          ) : bets.length === 0 ? (
+            <View style={styles.centered}>
+              <Text style={styles.emptyEmoji}>🤜</Text>
+              <Text style={styles.emptyText}>아직 내기가 없어요</Text>
+              <Text style={styles.emptySubText}>채팅 탭의 콜! 버튼으로 제안해보세요</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={bets}
+              keyExtractor={(b) => String(b.id)}
+              renderItem={({ item }) => (
+                <BetCard
+                  bet={item}
+                  myUserId={appUser?.id}
+                  onAccept={handleAccept}
+                  onCancel={handleCancel}
+                />
+              )}
+              contentContainerStyle={betStyles.list}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+          {/* 내기 탭에서도 내기 제안 가능 */}
           <TouchableOpacity
-            style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-            onPress={sendMessage}
-            disabled={!text.trim() || sending}
+            style={betStyles.newBetBtn}
+            onPress={() => setBetSheetVisible(true)}
+            activeOpacity={0.85}
           >
-            <Ionicons name="arrow-up" size={18} color="#fff" />
+            <Ionicons name="add" size={20} color="#fff" />
+            <Text style={betStyles.newBetBtnText}>내기 제안하기</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      )}
+
+      {/* 내기 제안 시트 */}
+      <BetSheet
+        visible={betSheetVisible}
+        onClose={() => setBetSheetVisible(false)}
+        roomId={roomIdNum}
+        onBetCreated={(bet) => {
+          addBet(bet);
+          setTab('bet');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -230,9 +447,28 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 15, fontWeight: '800', color: Colors.dark },
 
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: Colors.background,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  tabItem: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 12, gap: 6, borderBottomWidth: 2, borderBottomColor: 'transparent',
+  },
+  tabItemActive: { borderBottomColor: Colors.primary },
+  tabText: { fontSize: 14, fontWeight: '700', color: Colors.textSub },
+  tabTextActive: { color: Colors.primary },
+  tabBadge: {
+    backgroundColor: Colors.fail, borderRadius: 999,
+    paddingHorizontal: 5, paddingVertical: 1, minWidth: 16, alignItems: 'center',
+  },
+  tabBadgeText: { fontSize: 9, fontWeight: '900', color: '#fff' },
+
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
   emptyEmoji: { fontSize: 40 },
-  emptyText: { fontSize: 14, color: Colors.textSub },
+  emptyText: { fontSize: 14, fontWeight: '700', color: Colors.dark },
+  emptySubText: { fontSize: 12, color: Colors.textSub, textAlign: 'center' },
 
   messageList: { padding: 16, paddingBottom: 8, gap: 2 },
 
@@ -254,8 +490,7 @@ const styles = StyleSheet.create({
   sender: { fontSize: 11, color: Colors.textSub, fontWeight: '700', marginBottom: 3, marginLeft: 2 },
 
   bubbleInner: {
-    borderRadius: 18, paddingHorizontal: 13, paddingVertical: 10,
-    flexShrink: 1,
+    borderRadius: 18, paddingHorizontal: 13, paddingVertical: 10, flexShrink: 1,
   },
   bubbleMine: {
     backgroundColor: Colors.primary,
@@ -307,4 +542,54 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sendBtnDisabled: { backgroundColor: Colors.placeholder, shadowOpacity: 0 },
+});
+
+const betStyles = StyleSheet.create({
+  list: { padding: 16, gap: 12, paddingBottom: 80 },
+  card: {
+    backgroundColor: Colors.background,
+    borderRadius: 16, borderWidth: 1.5, borderColor: Colors.border,
+    padding: 16, gap: 10,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  statusText: { fontSize: 11, fontWeight: '800' },
+  resultBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  safeBadge: { backgroundColor: `${Colors.primary}20` },
+  outBadge: { backgroundColor: `${Colors.fail}18` },
+  resultText: { fontSize: 11, fontWeight: '800', color: Colors.dark },
+  dateText: { fontSize: 10, color: Colors.placeholder, marginLeft: 'auto' },
+
+  content: { fontSize: 16, fontWeight: '800', color: Colors.dark },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  teamInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  teamName: { fontSize: 13, fontWeight: '600', color: Colors.textSub },
+
+  meta: { fontSize: 12, color: Colors.placeholder },
+
+  actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  acceptBtn: {
+    flex: 1, backgroundColor: Colors.primary,
+    borderRadius: 10, paddingVertical: 10, alignItems: 'center',
+    shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  acceptBtnText: { fontSize: 14, fontWeight: '900', color: '#fff' },
+  cancelBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: 10, paddingVertical: 10, alignItems: 'center',
+  },
+  cancelBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textSub },
+
+  newBetBtn: {
+    position: 'absolute', bottom: 20, right: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.primary, borderRadius: 999,
+    paddingHorizontal: 18, paddingVertical: 12,
+    shadowColor: Colors.primary, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  newBetBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
 });
