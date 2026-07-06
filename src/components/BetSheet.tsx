@@ -24,8 +24,16 @@ interface Props {
   onBetCreated: (bet: Bet) => void;
 }
 
+function toDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
-  const [todayGames, setTodayGames] = useState<Game[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
+  const [gameDateLabel, setGameDateLabel] = useState('오늘');
   const [loadingGames, setLoadingGames] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -37,16 +45,31 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
     setSelectedGame(null);
     setSelectedTeam(null);
     setContent('');
-    fetchTodayGames();
+    fetchNearbyGames();
   }, [visible]);
 
-  const fetchTodayGames = async () => {
+  const fetchNearbyGames = async () => {
     setLoadingGames(true);
     try {
-      const games = await api.get<Game[]>('/api/v1/games/today');
-      setTodayGames(games ?? []);
-    } catch {
-      setTodayGames([]);
+      // 오늘 기준 0, +1, -1, +2, -2, +3, -3 순으로 경기 있는 날 탐색
+      const today = new Date();
+      const offsets = [0, 1, -1, 2, -2, 3, -3];
+      const labels = ['오늘', '내일', '어제', '모레', '그저께', '3일 후', '3일 전'];
+
+      for (let i = 0; i < offsets.length; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + offsets[i]);
+        const dateStr = toDateStr(d);
+        try {
+          const result = await api.get<Game[]>(`/api/v1/games?date=${dateStr}`);
+          if (result && result.length > 0) {
+            setGames(result);
+            setGameDateLabel(labels[i]);
+            return;
+          }
+        } catch {}
+      }
+      setGames([]);
     } finally {
       setLoadingGames(false);
     }
@@ -95,18 +118,18 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* 경기 선택 */}
-            <Text style={styles.label}>경기 선택</Text>
+            <Text style={styles.label}>경기 선택 ({gameDateLabel})</Text>
             {loadingGames ? (
               <ActivityIndicator color={Colors.primary} style={{ marginVertical: 16 }} />
-            ) : todayGames.length === 0 ? (
-              <Text style={styles.emptyText}>오늘 예정된 경기가 없습니다.</Text>
+            ) : games.length === 0 ? (
+              <Text style={styles.emptyText}>근처 경기를 찾을 수 없습니다.</Text>
             ) : (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.gameRow}
               >
-                {todayGames.map((game) => {
+                {games.map((game) => {
                   const selected = selectedGame?.id === game.id;
                   return (
                     <TouchableOpacity
