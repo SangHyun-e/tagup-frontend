@@ -53,6 +53,13 @@ export interface ChatMessage {
   createdAt: number;
 }
 
+export interface RoomMember {
+  id: number;
+  nickname: string;
+  favoriteTeamName: string | null;
+  joinedAt: string;
+}
+
 export type BetStatus = 'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
 export type BetResult = 'SAFE' | 'OUT' | null;
 

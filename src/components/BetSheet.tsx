@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/colors';
 import { api } from '../lib/api';
-import { Game, Bet, Team } from '../types';
+import { Game, Bet, Team, RoomMember } from '../types';
+import { useAuthStore } from '../store/useAuthStore';
 import { TeamEmblem } from './emblems/TeamEmblem';
 
 interface Props {
@@ -31,12 +32,23 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function toMonthDay(date: Date): string {
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
 export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
+  const { appUser } = useAuthStore();
+
   const [games, setGames] = useState<Game[]>([]);
-  const [gameDateLabel, setGameDateLabel] = useState('오늘');
+  const [gameDate, setGameDate] = useState('');
   const [loadingGames, setLoadingGames] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+
+  const [members, setMembers] = useState<RoomMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<RoomMember | null>(null);
+
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,34 +56,48 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
     if (!visible) return;
     setSelectedGame(null);
     setSelectedTeam(null);
+    setSelectedMember(null);
     setContent('');
     fetchNearbyGames();
+    fetchMembers();
   }, [visible]);
 
   const fetchNearbyGames = async () => {
     setLoadingGames(true);
     try {
-      // 오늘 기준 0, +1, -1, +2, -2, +3, -3 순으로 경기 있는 날 탐색
       const today = new Date();
       const offsets = [0, 1, -1, 2, -2, 3, -3];
-      const labels = ['오늘', '내일', '어제', '모레', '그저께', '3일 후', '3일 전'];
 
-      for (let i = 0; i < offsets.length; i++) {
+      for (const offset of offsets) {
         const d = new Date(today);
-        d.setDate(today.getDate() + offsets[i]);
+        d.setDate(today.getDate() + offset);
         const dateStr = toDateStr(d);
         try {
           const result = await api.get<Game[]>(`/api/v1/games?date=${dateStr}`);
           if (result && result.length > 0) {
             setGames(result);
-            setGameDateLabel(labels[i]);
+            setGameDate(toMonthDay(d));
             return;
           }
         } catch {}
       }
       setGames([]);
+      setGameDate('');
     } finally {
       setLoadingGames(false);
+    }
+  };
+
+  const fetchMembers = async () => {
+    setLoadingMembers(true);
+    try {
+      const result = await api.get<RoomMember[]>(`/api/v1/rooms/${roomId}/members`);
+      // 나 자신 제외
+      setMembers((result ?? []).filter((m) => m.id !== appUser?.id));
+    } catch {
+      setMembers([]);
+    } finally {
+      setLoadingMembers(false);
     }
   };
 
@@ -81,8 +107,8 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!selectedGame || !selectedTeam || !content.trim()) {
-      Alert.alert('입력 확인', '경기, 응원 팀, 내기 내용을 모두 입력해주세요.');
+    if (!selectedGame || !selectedTeam || !selectedMember || !content.trim()) {
+      Alert.alert('입력 확인', '경기, 응원 팀, 상대방, 내기 내용을 모두 입력해주세요.');
       return;
     }
     setSubmitting(true);
@@ -91,6 +117,7 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
         content: content.trim(),
         gameId: selectedGame.id,
         betOnTeamId: selectedTeam.id,
+        receiverId: selectedMember.id,
       });
       onBetCreated(bet);
       onClose();
@@ -101,7 +128,8 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
     }
   };
 
-  const canSubmit = !!selectedGame && !!selectedTeam && content.trim().length > 0;
+  const canSubmit =
+    !!selectedGame && !!selectedTeam && !!selectedMember && content.trim().length > 0;
 
   const QUICK_CONTENTS = ['커피 한 잔', '밥 사기', '치킨 사기', '아이스크림'];
 
@@ -117,8 +145,49 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
           <Text style={styles.title}>내기 제안하기</Text>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+            {/* 상대방 선택 */}
+            <Text style={styles.label}>상대방</Text>
+            {loadingMembers ? (
+              <ActivityIndicator color={Colors.primary} style={{ marginVertical: 12 }} />
+            ) : members.length === 0 ? (
+              <Text style={styles.emptyText}>같은 더그아웃 멤버가 없습니다.</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.memberRow}
+              >
+                {members.map((member) => {
+                  const picked = selectedMember?.id === member.id;
+                  return (
+                    <TouchableOpacity
+                      key={member.id}
+                      style={[styles.memberChip, picked && styles.memberChipSelected]}
+                      onPress={() => setSelectedMember(picked ? null : member)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.memberAvatar, picked && styles.memberAvatarSelected]}>
+                        <Text style={styles.memberAvatarText}>
+                          {member.nickname.slice(0, 1)}
+                        </Text>
+                      </View>
+                      <Text style={[styles.memberName, picked && styles.memberNameSelected]}>
+                        {member.nickname}
+                      </Text>
+                      {member.favoriteTeamName && (
+                        <Text style={styles.memberTeam}>{member.favoriteTeamName}</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
             {/* 경기 선택 */}
-            <Text style={styles.label}>경기 선택 ({gameDateLabel})</Text>
+            <Text style={[styles.label, { marginTop: 20 }]}>
+              경기 선택{gameDate ? ` (${gameDate})` : ''}
+            </Text>
             {loadingGames ? (
               <ActivityIndicator color={Colors.primary} style={{ marginVertical: 16 }} />
             ) : games.length === 0 ? (
@@ -202,7 +271,7 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
               onChangeText={setContent}
               placeholder="직접 입력… (예: 아침 커피)"
               placeholderTextColor={Colors.placeholder}
-              maxLength={50}
+              maxLength={100}
             />
 
             {/* 제안 버튼 */}
@@ -234,7 +303,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 20,
     paddingBottom: 40,
-    maxHeight: '88%',
+    maxHeight: '90%',
   },
   handle: {
     width: 42, height: 5, borderRadius: 999,
@@ -242,18 +311,30 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 17, fontWeight: '800', color: Colors.dark, textAlign: 'center', marginBottom: 20 },
   label: { fontSize: 13, fontWeight: '700', color: Colors.dark, marginBottom: 10 },
-  emptyText: { fontSize: 13, color: Colors.textSub, textAlign: 'center', paddingVertical: 12 },
+  emptyText: { fontSize: 13, color: Colors.textSub, paddingVertical: 8 },
+
+  memberRow: { gap: 10, paddingBottom: 4 },
+  memberChip: {
+    alignItems: 'center', gap: 5, paddingVertical: 10, paddingHorizontal: 14,
+    borderRadius: 16, borderWidth: 1.5, borderColor: Colors.border,
+    backgroundColor: Colors.surface, minWidth: 70,
+  },
+  memberChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.accentLight },
+  memberAvatar: {
+    width: 38, height: 38, borderRadius: 14,
+    backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center',
+  },
+  memberAvatarSelected: { backgroundColor: Colors.primary },
+  memberAvatarText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  memberName: { fontSize: 12, fontWeight: '700', color: Colors.dark },
+  memberNameSelected: { color: Colors.primary },
+  memberTeam: { fontSize: 10, color: Colors.textSub },
 
   gameRow: { gap: 10, paddingBottom: 4 },
   gameCard: {
-    width: 130,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    padding: 12,
-    alignItems: 'center',
-    gap: 6,
+    width: 130, borderRadius: 16, borderWidth: 1.5,
+    borderColor: Colors.border, backgroundColor: Colors.surface,
+    padding: 12, alignItems: 'center', gap: 6,
   },
   gameCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.accentLight },
   gameTeams: { flexDirection: 'row', alignItems: 'center', gap: 6 },
