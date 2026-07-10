@@ -56,14 +56,14 @@ type TabType = 'chat' | 'bet';
 const BET_STATUS_LABEL: Record<string, string> = {
   PENDING: '대기 중',
   ACCEPTED: '수락됨',
-  COMPLETED: '완료',
+  FINISHED: '정산 완료',
   CANCELLED: '취소됨',
 };
 
 const BET_STATUS_COLOR: Record<string, string> = {
   PENDING: Colors.primary,
   ACCEPTED: '#4C82F7',
-  COMPLETED: Colors.dark,
+  FINISHED: Colors.dark,
   CANCELLED: Colors.placeholder,
 };
 
@@ -78,9 +78,22 @@ function BetCard({
   onAccept: (betId: number) => void;
   onCancel: (betId: number) => void;
 }) {
-  const isProposer = bet.proposerId === myUserId;
+  const isProposer = bet.proposer.id === myUserId;
   const isPending = bet.status === 'PENDING';
-  const isCompleted = bet.status === 'COMPLETED';
+  const isFinished = bet.status === 'FINISHED';
+
+  // proposerResult는 제안자 기준 → 승자 닉네임으로 변환해 표시
+  const resultLabel =
+    bet.proposerResult === 'DRAW'
+      ? '🤝 무승부'
+      : bet.proposerResult === 'WIN'
+        ? `🏆 ${bet.proposer.nickname} 승`
+        : bet.proposerResult === 'LOSE'
+          ? `🏆 ${bet.receiver.nickname} 승`
+          : null;
+  const iWon =
+    (bet.proposerResult === 'WIN' && isProposer) ||
+    (bet.proposerResult === 'LOSE' && !isProposer);
 
   return (
     <View style={betStyles.card}>
@@ -91,9 +104,9 @@ function BetCard({
             {BET_STATUS_LABEL[bet.status]}
           </Text>
         </View>
-        {isCompleted && bet.result && (
-          <View style={[betStyles.resultBadge, bet.result === 'SAFE' ? betStyles.safeBadge : betStyles.outBadge]}>
-            <Text style={betStyles.resultText}>{bet.result === 'SAFE' ? '⚾ SAFE' : '❌ OUT'}</Text>
+        {isFinished && resultLabel && (
+          <View style={[betStyles.resultBadge, iWon ? betStyles.winBadge : betStyles.loseBadge]}>
+            <Text style={betStyles.resultText}>{resultLabel}</Text>
           </View>
         )}
         <Text style={betStyles.dateText}>{formatDate(bet.createdAt)}</Text>
@@ -104,21 +117,17 @@ function BetCard({
 
       {/* 팀 & 배팅 */}
       <View style={betStyles.teamRow}>
-        {bet.betOnTeam && (
-          <View style={betStyles.teamInfo}>
-            <TeamEmblem shortName={bet.betOnTeam.shortName} size={32} />
-            <Text style={betStyles.teamName}>{bet.betOnTeam.shortName} 승리에 배팅</Text>
-          </View>
-        )}
-        {!bet.betOnTeam && (
-          <Text style={betStyles.teamName}>팀 ID {bet.betOnTeamId} 승리에 배팅</Text>
-        )}
+        <View style={betStyles.teamInfo}>
+          <TeamEmblem shortName={bet.betOnTeam.shortName} size={32} />
+          <Text style={betStyles.teamName}>
+            {bet.betOnTeam.shortName} 승리에 배팅 · {bet.game.awayTeam} vs {bet.game.homeTeam}
+          </Text>
+        </View>
       </View>
 
       {/* 제안자 정보 */}
       <Text style={betStyles.meta}>
-        {bet.proposerNickname}이(가) 제안
-        {bet.receiverNickname ? ` · ${bet.receiverNickname}에게` : ''}
+        {bet.proposer.nickname}이(가) {bet.receiver.nickname}에게 제안
       </Text>
 
       {/* 액션 버튼 */}
@@ -557,8 +566,8 @@ const betStyles = StyleSheet.create({
   statusBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 11, fontWeight: '800' },
   resultBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  safeBadge: { backgroundColor: `${Colors.primary}20` },
-  outBadge: { backgroundColor: `${Colors.fail}18` },
+  winBadge: { backgroundColor: `${Colors.primary}20` },
+  loseBadge: { backgroundColor: `${Colors.fail}18` },
   resultText: { fontSize: 11, fontWeight: '800', color: Colors.dark },
   dateText: { fontSize: 10, color: Colors.placeholder, marginLeft: 'auto' },
 
