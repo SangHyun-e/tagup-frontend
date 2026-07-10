@@ -53,15 +53,30 @@ export interface ChatMessage {
   createdAt: number;
 }
 
+export interface RoomMember {
+  id: number;
+  nickname: string;
+  favoriteTeamName: string | null;
+  joinedAt: string;
+}
+
+export type BetStatus = 'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
+export type BetResult = 'SAFE' | 'OUT' | null;
+
 export interface Bet {
   id: number;
   roomId: number;
   proposerId: number;
   proposerNickname: string;
+  receiverId: number | null;
+  receiverNickname: string | null;
   gameId: number;
+  game?: Game;
+  betOnTeamId: number;
+  betOnTeam?: Team;
+  content: string;
   betType: 'GAME_RESULT' | 'AT_BAT';
-  condition: string;
-  status: 'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
-  result: 'SAFE' | 'OUT' | null;
+  status: BetStatus;
+  result: BetResult;
   createdAt: string;
 }
