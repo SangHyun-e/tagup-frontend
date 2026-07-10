@@ -20,6 +20,7 @@ export interface Room {
   id: number;
   name: string;
   tagCode: string;
+  chatKey: string; // Firestore 채팅 경로 키 (rooms/{chatKey}/messages)
   memberCount: number;
   hostId: number;
   gameId: number | null;

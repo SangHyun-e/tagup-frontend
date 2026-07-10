@@ -35,7 +35,7 @@ export default function RoomEnterScreen() {
       addRoom(room);
       router.replace({
         pathname: '/chat/[roomId]',
-        params: { roomId: String(room.id), roomName: room.name },
+        params: { roomId: String(room.id), roomName: room.name, chatKey: room.chatKey },
       });
     } catch (e: any) {
       setError(e.message ?? '방 입장에 실패했습니다.');

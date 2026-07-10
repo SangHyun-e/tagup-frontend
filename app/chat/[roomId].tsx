@@ -27,7 +27,7 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRoomStore } from '../../src/store/useRoomStore';
 import { useBetStore } from '../../src/store/useBetStore';
 import { Colors } from '../../src/constants/colors';
-import { ChatMessage, Bet } from '../../src/types';
+import { ChatMessage, Bet, Room } from '../../src/types';
 import { BetSheet } from '../../src/components/BetSheet';
 import { api } from '../../src/lib/api';
 import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
@@ -150,7 +150,11 @@ function BetCard({
 
 export default function ChatScreen() {
   const router = useRouter();
-  const { roomId, roomName } = useLocalSearchParams<{ roomId: string; roomName: string }>();
+  const { roomId, roomName, chatKey: chatKeyParam } = useLocalSearchParams<{
+    roomId: string;
+    roomName: string;
+    chatKey?: string;
+  }>();
   const { firebaseUser, appUser } = useAuthStore();
   const { rooms } = useRoomStore();
   const { bets, loading: betsLoading, fetchBets, addBet, updateBet } = useBetStore();
@@ -166,10 +170,23 @@ export default function ChatScreen() {
   const displayName = roomName ?? rooms.find((r) => String(r.id) === roomId)?.name ?? '더그아웃';
   const roomIdNum = Number(roomId);
 
+  // 채팅 경로 키: 파라미터 → 스토어 → 방 상세 API 순으로 확보
+  const [chatKey, setChatKey] = useState<string | null>(
+    chatKeyParam ?? rooms.find((r) => String(r.id) === roomId)?.chatKey ?? null,
+  );
+
   useEffect(() => {
-    if (!roomId) return;
+    if (chatKey || !roomId) return;
+    api
+      .get<Room>(`/api/v1/rooms/${roomId}`)
+      .then((room) => setChatKey(room.chatKey))
+      .catch((e) => console.warn('chatKey 조회 실패', e.message));
+  }, [chatKey, roomId]);
+
+  useEffect(() => {
+    if (!chatKey) return;
     const q = query(
-      collection(db, 'rooms', roomId, 'messages'),
+      collection(db, 'rooms', chatKey, 'messages'),
       orderBy('createdAt', 'asc'),
       limit(100),
     );
@@ -184,7 +201,7 @@ export default function ChatScreen() {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
     });
     return unsub;
-  }, [roomId]);
+  }, [chatKey]);
 
   useEffect(() => {
     if (tab === 'bet' && roomIdNum) {
@@ -194,11 +211,11 @@ export default function ChatScreen() {
 
   const sendMessage = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed || !firebaseUser || !roomId) return;
+    if (!trimmed || !firebaseUser || !chatKey) return;
     setText('');
     setSending(true);
     try {
-      await addDoc(collection(db, 'rooms', roomId, 'messages'), {
+      await addDoc(collection(db, 'rooms', chatKey, 'messages'), {
         roomId,
         senderId: firebaseUser.uid,
         senderNickname: appUser?.nickname ?? '알 수 없음',
@@ -210,7 +227,7 @@ export default function ChatScreen() {
     } finally {
       setSending(false);
     }
-  }, [text, firebaseUser, appUser, roomId]);
+  }, [text, firebaseUser, appUser, chatKey]);
 
   const handleAccept = async (betId: number) => {
     try {
