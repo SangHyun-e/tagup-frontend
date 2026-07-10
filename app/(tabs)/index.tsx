@@ -202,7 +202,7 @@ export default function MainHomeScreen() {
       const room = await api.post<Room>('/api/v1/rooms', { name });
       addRoom(room);
       closeModal();
-      router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name } });
+      router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name, chatKey: room.chatKey } });
     } catch (e: any) {
       Alert.alert('오류', e.message ?? '방 생성에 실패했어요.');
     } finally { setSubmitting(false); }
@@ -216,14 +216,14 @@ export default function MainHomeScreen() {
       const room = await api.post<Room>('/api/v1/rooms/join', { tagCode: code });
       addRoom(room);
       closeModal();
-      router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name } });
+      router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name, chatKey: room.chatKey } });
     } catch (e: any) {
       Alert.alert('오류', e.message ?? '태그코드를 확인해주세요.');
     } finally { setSubmitting(false); }
   };
 
   const navigateToChat = (room: Room) =>
-    router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name } });
+    router.push({ pathname: '/chat/[roomId]', params: { roomId: String(room.id), roomName: room.name, chatKey: room.chatKey } });
 
   return (
     <SafeAreaView style={styles.container}>
