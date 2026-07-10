@@ -60,23 +60,36 @@ export interface RoomMember {
   joinedAt: string;
 }
 
-export type BetStatus = 'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
-export type BetResult = 'SAFE' | 'OUT' | null;
+// BE BetResponse 스펙과 1:1 대응 (tagup-backend BetResponse.java)
+export type BetStatus = 'PENDING' | 'ACCEPTED' | 'FINISHED' | 'CANCELLED';
+export type BetResult = 'WIN' | 'LOSE' | 'DRAW';
+
+export interface BetUserInfo {
+  id: number;
+  nickname: string;
+}
+
+export interface BetTeamInfo {
+  id: number;
+  shortName: string;
+}
+
+export interface BetGameSummary {
+  id: number;
+  homeTeam: string;
+  awayTeam: string;
+  gameDate: string;
+}
 
 export interface Bet {
   id: number;
-  roomId: number;
-  proposerId: number;
-  proposerNickname: string;
-  receiverId: number | null;
-  receiverNickname: string | null;
-  gameId: number;
-  game?: Game;
+  proposer: BetUserInfo;
+  receiver: BetUserInfo;
   betOnTeamId: number;
-  betOnTeam?: Team;
+  betOnTeam: BetTeamInfo;
   content: string;
-  betType: 'GAME_RESULT' | 'AT_BAT';
   status: BetStatus;
-  result: BetResult;
+  proposerResult: BetResult | null; // 제안자 기준, 정산 전 null
+  game: BetGameSummary;
   createdAt: string;
 }
