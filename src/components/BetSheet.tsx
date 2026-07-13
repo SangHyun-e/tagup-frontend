@@ -25,15 +25,12 @@ interface Props {
   onBetCreated: (bet: Bet) => void;
 }
 
-function toDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function toMonthDay(date: Date): string {
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+// "2026-07-16" → "7/16", 오늘이면 "오늘"
+function formatGameDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const now = new Date();
+  if (y === now.getFullYear() && m === now.getMonth() + 1 && d === now.getDate()) return '오늘';
+  return `${m}/${d}`;
 }
 
 export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
@@ -58,29 +55,23 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
     setSelectedTeam(null);
     setSelectedMember(null);
     setContent('');
-    fetchNearbyGames();
+    fetchUpcomingGames();
     fetchMembers();
   }, [visible]);
 
-  const fetchNearbyGames = async () => {
+  // 오늘 이후 가장 가까운 예정 경기일의 경기 (올스타 브레이크 등 휴식기 대응)
+  const fetchUpcomingGames = async () => {
     setLoadingGames(true);
     try {
-      const today = new Date();
-      const offsets = [0, 1, -1, 2, -2, 3, -3];
-
-      for (const offset of offsets) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + offset);
-        const dateStr = toDateStr(d);
-        try {
-          const result = await api.get<Game[]>(`/api/v1/games?date=${dateStr}`);
-          if (result && result.length > 0) {
-            setGames(result);
-            setGameDate(toMonthDay(d));
-            return;
-          }
-        } catch {}
+      const result = await api.get<Game[]>('/api/v1/games/upcoming');
+      if (result && result.length > 0) {
+        setGames(result);
+        setGameDate(formatGameDate(result[0].gameDate));
+      } else {
+        setGames([]);
+        setGameDate('');
       }
+    } catch {
       setGames([]);
       setGameDate('');
     } finally {
@@ -191,7 +182,7 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
             {loadingGames ? (
               <ActivityIndicator color={Colors.primary} style={{ marginVertical: 16 }} />
             ) : games.length === 0 ? (
-              <Text style={styles.emptyText}>근처 경기를 찾을 수 없습니다.</Text>
+              <Text style={styles.emptyText}>3주 내 예정된 경기가 없습니다.</Text>
             ) : (
               <ScrollView
                 horizontal
