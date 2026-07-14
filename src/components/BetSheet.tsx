@@ -14,8 +14,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/colors';
 import { api } from '../lib/api';
-import { Game, Bet, Team, RoomMember } from '../types';
-import { useAuthStore } from '../store/useAuthStore';
+import { Game, Bet, Team } from '../types';
 import { TeamEmblem } from './emblems/TeamEmblem';
 
 interface Props {
@@ -34,17 +33,11 @@ function formatGameDate(dateStr: string): string {
 }
 
 export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
-  const { appUser } = useAuthStore();
-
   const [games, setGames] = useState<Game[]>([]);
   const [gameDate, setGameDate] = useState('');
   const [loadingGames, setLoadingGames] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-
-  const [members, setMembers] = useState<RoomMember[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<RoomMember | null>(null);
 
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -53,10 +46,8 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
     if (!visible) return;
     setSelectedGame(null);
     setSelectedTeam(null);
-    setSelectedMember(null);
     setContent('');
     fetchUpcomingGames();
-    fetchMembers();
   }, [visible]);
 
   // 오늘 이후 가장 가까운 예정 경기일의 경기 (올스타 브레이크 등 휴식기 대응)
@@ -79,27 +70,14 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
     }
   };
 
-  const fetchMembers = async () => {
-    setLoadingMembers(true);
-    try {
-      const result = await api.get<RoomMember[]>(`/api/v1/rooms/${roomId}/members`);
-      // 나 자신 제외
-      setMembers((result ?? []).filter((m) => m.id !== appUser?.id));
-    } catch {
-      setMembers([]);
-    } finally {
-      setLoadingMembers(false);
-    }
-  };
-
   const handleSelectGame = (game: Game) => {
     setSelectedGame(game);
     setSelectedTeam(null);
   };
 
   const handleSubmit = async () => {
-    if (!selectedGame || !selectedTeam || !selectedMember || !content.trim()) {
-      Alert.alert('입력 확인', '경기, 응원 팀, 상대방, 내기 내용을 모두 입력해주세요.');
+    if (!selectedGame || !selectedTeam || !content.trim()) {
+      Alert.alert('입력 확인', '경기, 응원 팀, 내기 내용을 모두 입력해주세요.');
       return;
     }
     setSubmitting(true);
@@ -108,19 +86,17 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
         content: content.trim(),
         gameId: selectedGame.id,
         betOnTeamId: selectedTeam.id,
-        receiverId: selectedMember.id,
       });
       onBetCreated(bet);
       onClose();
     } catch (e: any) {
-      Alert.alert('오류', e.message ?? '내기 제안에 실패했습니다.');
+      Alert.alert('오류', e.message ?? '배팅 걸기에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const canSubmit =
-    !!selectedGame && !!selectedTeam && !!selectedMember && content.trim().length > 0;
+  const canSubmit = !!selectedGame && !!selectedTeam && content.trim().length > 0;
 
   const QUICK_CONTENTS = ['커피 한 잔', '밥 사기', '치킨 사기', '아이스크림'];
 
@@ -133,50 +109,13 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.title}>내기 제안하기</Text>
+          <Text style={styles.title}>배팅 걸기</Text>
+          <Text style={styles.subGuide}>더그아웃 전체에 공개돼요. 먼저 콜한 멤버와 성립!</Text>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-            {/* 상대방 선택 */}
-            <Text style={styles.label}>상대방</Text>
-            {loadingMembers ? (
-              <ActivityIndicator color={Colors.primary} style={{ marginVertical: 12 }} />
-            ) : members.length === 0 ? (
-              <Text style={styles.emptyText}>같은 더그아웃 멤버가 없습니다.</Text>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.memberRow}
-              >
-                {members.map((member) => {
-                  const picked = selectedMember?.id === member.id;
-                  return (
-                    <TouchableOpacity
-                      key={member.id}
-                      style={[styles.memberChip, picked && styles.memberChipSelected]}
-                      onPress={() => setSelectedMember(picked ? null : member)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={[styles.memberAvatar, picked && styles.memberAvatarSelected]}>
-                        <Text style={styles.memberAvatarText}>
-                          {member.nickname.slice(0, 1)}
-                        </Text>
-                      </View>
-                      <Text style={[styles.memberName, picked && styles.memberNameSelected]}>
-                        {member.nickname}
-                      </Text>
-                      {member.favoriteTeamName && (
-                        <Text style={styles.memberTeam}>{member.favoriteTeamName}</Text>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-
             {/* 경기 선택 */}
-            <Text style={[styles.label, { marginTop: 20 }]}>
+            <Text style={styles.label}>
               경기 선택{gameDate ? ` (${gameDate})` : ''}
             </Text>
             {loadingGames ? (
@@ -275,7 +214,7 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.submitBtnText}>제안하기</Text>
+                <Text style={styles.submitBtnText}>배팅 걸기</Text>
               )}
             </TouchableOpacity>
           </ScrollView>
@@ -301,25 +240,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border, alignSelf: 'center', marginBottom: 16,
   },
   title: { fontSize: 17, fontWeight: '800', color: Colors.dark, textAlign: 'center', marginBottom: 20 },
+  subGuide: { fontSize: 12, color: Colors.textSub, textAlign: 'center', marginTop: -12, marginBottom: 18 },
   label: { fontSize: 13, fontWeight: '700', color: Colors.dark, marginBottom: 10 },
   emptyText: { fontSize: 13, color: Colors.textSub, paddingVertical: 8 },
 
-  memberRow: { gap: 10, paddingBottom: 4 },
-  memberChip: {
-    alignItems: 'center', gap: 5, paddingVertical: 10, paddingHorizontal: 14,
-    borderRadius: 16, borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: Colors.surface, minWidth: 70,
-  },
-  memberChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.accentLight },
-  memberAvatar: {
-    width: 38, height: 38, borderRadius: 14,
-    backgroundColor: Colors.border, alignItems: 'center', justifyContent: 'center',
-  },
-  memberAvatarSelected: { backgroundColor: Colors.primary },
-  memberAvatarText: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  memberName: { fontSize: 12, fontWeight: '700', color: Colors.dark },
-  memberNameSelected: { color: Colors.primary },
-  memberTeam: { fontSize: 10, color: Colors.textSub },
 
   gameRow: { gap: 10, paddingBottom: 4 },
   gameCard: {

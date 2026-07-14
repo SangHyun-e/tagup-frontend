@@ -86,7 +86,7 @@ export interface BetGameSummary {
 export interface Bet {
   id: number;
   proposer: BetUserInfo;
-  receiver: BetUserInfo;
+  receiver: BetUserInfo | null; // 오픈 배팅: 콜 전까지 null
   betOnTeamId: number;
   betOnTeam: BetTeamInfo;
   content: string;
