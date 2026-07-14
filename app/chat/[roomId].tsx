@@ -184,6 +184,7 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [betSheetVisible, setBetSheetVisible] = useState(false);
+  const [plusPanelOpen, setPlusPanelOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   const displayName = roomName ?? rooms.find((r) => String(r.id) === roomId)?.name ?? '더그아웃';
@@ -472,14 +473,15 @@ export default function ChatScreen() {
             <TouchableOpacity
               style={styles.plusBtn}
               activeOpacity={0.7}
-              onPress={() => setBetSheetVisible(true)}
+              onPress={() => setPlusPanelOpen((v) => !v)}
             >
-              <Ionicons name="add" size={22} color={Colors.textSub} />
+              <Ionicons name={plusPanelOpen ? 'close' : 'add'} size={22} color={Colors.textSub} />
             </TouchableOpacity>
             <TextInput
               style={styles.input}
               value={text}
               onChangeText={setText}
+              onFocus={() => setPlusPanelOpen(false)}
               placeholder="더그아웃에 메시지…"
               placeholderTextColor={Colors.placeholder}
               multiline
@@ -495,6 +497,25 @@ export default function ChatScreen() {
               <Ionicons name="arrow-up" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
+
+          {/* 더보기 패널 */}
+          {plusPanelOpen && (
+            <View style={styles.plusPanel}>
+              <TouchableOpacity
+                style={styles.plusItem}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setPlusPanelOpen(false);
+                  setBetSheetVisible(true);
+                }}
+              >
+                <View style={styles.plusItemIcon}>
+                  <Text style={styles.plusItemEmoji}>🎲</Text>
+                </View>
+                <Text style={styles.plusItemLabel}>배팅 걸기</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </KeyboardAvoidingView>
       )}
 
@@ -649,6 +670,21 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(255,255,255,0.95)',
   },
+  plusPanel: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 20,
+    paddingHorizontal: 24, paddingVertical: 20,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: Colors.surface, minHeight: 120,
+  },
+  plusItem: { alignItems: 'center', gap: 8, width: 64 },
+  plusItemIcon: {
+    width: 52, height: 52, borderRadius: 18,
+    backgroundColor: Colors.background,
+    borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  plusItemEmoji: { fontSize: 24 },
+  plusItemLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSub },
   plusBtn: {
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
