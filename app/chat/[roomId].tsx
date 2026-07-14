@@ -82,6 +82,10 @@ function BetCard({
   const isPending = bet.status === 'PENDING';
   const isFinished = bet.status === 'FINISHED';
 
+  // 제안자의 반대편 팀 (콜하는 사람이 배팅하게 되는 팀)
+  const oppositeTeam =
+    bet.game.homeTeam === bet.betOnTeam.shortName ? bet.game.awayTeam : bet.game.homeTeam;
+
   // proposerResult는 제안자 기준 → 승자 닉네임으로 변환해 표시
   const resultLabel =
     bet.proposerResult === 'DRAW'
@@ -89,7 +93,7 @@ function BetCard({
       : bet.proposerResult === 'WIN'
         ? `🏆 ${bet.proposer.nickname} 승`
         : bet.proposerResult === 'LOSE'
-          ? `🏆 ${bet.receiver.nickname} 승`
+          ? `🏆 ${bet.receiver?.nickname ?? '상대'} 승`
           : null;
   const iWon =
     (bet.proposerResult === 'WIN' && isProposer) ||
@@ -125,10 +129,16 @@ function BetCard({
         </View>
       </View>
 
-      {/* 제안자 정보 */}
-      <Text style={betStyles.meta}>
-        {bet.proposer.nickname}이(가) {bet.receiver.nickname}에게 제안
-      </Text>
+      {/* 대진 정보 */}
+      {bet.receiver ? (
+        <Text style={betStyles.meta}>
+          {bet.proposer.nickname}({bet.betOnTeam.shortName}) vs {bet.receiver.nickname}({oppositeTeam})
+        </Text>
+      ) : (
+        <Text style={betStyles.metaOpen}>
+          {bet.proposer.nickname}님이 걸었어요 · 콜하면 {oppositeTeam} 승리에 배팅!
+        </Text>
+      )}
 
       {/* 액션 버튼 */}
       {isPending && (
@@ -263,7 +273,7 @@ export default function ChatScreen() {
   const handleBetCreated = (bet: Bet) => {
     addBet(bet);
     announceBetEvent(
-      `🎲 ${bet.proposer.nickname}님이 ${bet.receiver.nickname}님에게 내기를 제안했어요\n"${bet.content}" · ${bet.betOnTeam.shortName} 승리에 배팅`,
+      `🎲 ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${bet.betOnTeam.shortName} 승리에 배팅`,
       bet.id,
     );
   };
@@ -272,8 +282,12 @@ export default function ChatScreen() {
     try {
       const updated = await api.put<Bet>(`/api/v1/bets/${betId}/accept`, {});
       updateBet(updated);
+      const opposite =
+        updated.game.homeTeam === updated.betOnTeam.shortName
+          ? updated.game.awayTeam
+          : updated.game.homeTeam;
       announceBetEvent(
-        `📣 ${updated.receiver.nickname}님이 콜! 내기가 성립됐어요\n"${updated.content}"`,
+        `📣 ${updated.receiver?.nickname}님이 콜! 배팅 성립\n${updated.proposer.nickname}(${updated.betOnTeam.shortName}) vs ${updated.receiver?.nickname}(${opposite}) · "${updated.content}"`,
         updated.id,
       );
     } catch (e: any) {
@@ -432,7 +446,7 @@ export default function ChatScreen() {
               activeOpacity={0.7}
               onPress={() => setBetSheetVisible(true)}
             >
-              <Text style={styles.callBtnText}>콜!</Text>
+              <Text style={styles.callBtnText}>배팅</Text>
             </TouchableOpacity>
             <TextInput
               style={styles.input}
@@ -467,7 +481,7 @@ export default function ChatScreen() {
             <View style={styles.centered}>
               <Text style={styles.emptyEmoji}>🤜</Text>
               <Text style={styles.emptyText}>아직 내기가 없어요</Text>
-              <Text style={styles.emptySubText}>채팅 탭의 콜! 버튼으로 제안해보세요</Text>
+              <Text style={styles.emptySubText}>채팅 탭의 배팅 버튼으로 걸어보세요</Text>
             </View>
           ) : (
             <FlatList
@@ -655,6 +669,7 @@ const betStyles = StyleSheet.create({
   teamName: { fontSize: 13, fontWeight: '600', color: Colors.textSub },
 
   meta: { fontSize: 12, color: Colors.placeholder },
+  metaOpen: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginTop: 2 },
 
   actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   acceptBtn: {
