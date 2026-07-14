@@ -277,7 +277,7 @@ export default function ChatScreen() {
   const handleBetCreated = (bet: Bet) => {
     addBet(bet);
     announceBetEvent(
-      `🎲 ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${bet.betOnTeam.shortName} 승리에 배팅`,
+      `⚾ ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${bet.betOnTeam.shortName} 승리에 배팅`,
       bet.id,
     );
   };
@@ -510,7 +510,7 @@ export default function ChatScreen() {
                 }}
               >
                 <View style={styles.plusItemIcon}>
-                  <Text style={styles.plusItemEmoji}>🎲</Text>
+                  <Ionicons name="baseball-outline" size={26} color={Colors.primary} />
                 </View>
                 <Text style={styles.plusItemLabel}>배팅 걸기</Text>
               </TouchableOpacity>
@@ -683,7 +683,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  plusItemEmoji: { fontSize: 24 },
   plusItemLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSub },
   plusBtn: {
     width: 36, height: 36, borderRadius: 18,
