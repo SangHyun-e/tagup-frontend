@@ -229,6 +229,7 @@ export default function ChatScreen() {
         senderId: firebaseUser.uid,
         senderNickname: appUser?.nickname ?? '알 수 없음',
         senderTeamEmoji: appUser?.team?.emoji ?? null,
+        senderTeamShort: appUser?.team?.shortName ?? null,
         content: trimmed,
         type: 'TEXT',
         createdAt: serverTimestamp(),
@@ -238,10 +239,43 @@ export default function ChatScreen() {
     }
   }, [text, firebaseUser, appUser, chatKey]);
 
+  // 내기 이벤트 안내 메시지 (제안/콜/취소는 행동한 유저의 앱이 작성, 정산은 BE가 작성)
+  const announceBetEvent = useCallback(
+    async (content: string, betId: number) => {
+      if (!chatKey) return;
+      try {
+        await addDoc(collection(db, 'rooms', chatKey, 'messages'), {
+          roomId,
+          senderId: 'system',
+          senderNickname: '태그업',
+          content,
+          type: 'BET',
+          betId,
+          createdAt: serverTimestamp(),
+        });
+      } catch (e: any) {
+        console.warn('bet announce failed', e.message);
+      }
+    },
+    [chatKey, roomId],
+  );
+
+  const handleBetCreated = (bet: Bet) => {
+    addBet(bet);
+    announceBetEvent(
+      `🎲 ${bet.proposer.nickname}님이 ${bet.receiver.nickname}님에게 내기를 제안했어요\n"${bet.content}" · ${bet.betOnTeam.shortName} 승리에 배팅`,
+      bet.id,
+    );
+  };
+
   const handleAccept = async (betId: number) => {
     try {
       const updated = await api.put<Bet>(`/api/v1/bets/${betId}/accept`, {});
       updateBet(updated);
+      announceBetEvent(
+        `📣 ${updated.receiver.nickname}님이 콜! 내기가 성립됐어요\n"${updated.content}"`,
+        updated.id,
+      );
     } catch (e: any) {
       console.warn('accept failed', e.message);
     }
@@ -251,6 +285,7 @@ export default function ChatScreen() {
     try {
       const updated = await api.put<Bet>(`/api/v1/bets/${betId}/cancel`, {});
       updateBet(updated);
+      announceBetEvent(`↩️ 내기가 취소됐어요 — "${updated.content}"`, updated.id);
     } catch (e: any) {
       console.warn('cancel failed', e.message);
     }
@@ -259,6 +294,17 @@ export default function ChatScreen() {
   const isMyMessage = (msg: ChatMessage) => msg.senderId === firebaseUser?.uid;
 
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
+    // 시스템 안내 메시지 (내기 제안/콜/취소/정산) — 가운데 정렬 카드
+    if (item.senderId === 'system' || item.type === 'BET') {
+      return (
+        <View style={styles.sysMsgRow}>
+          <View style={styles.sysMsgCard}>
+            <Text style={styles.sysMsgText}>{item.content}</Text>
+          </View>
+        </View>
+      );
+    }
+
     const mine = isMyMessage(item);
     const prev = messages[index - 1];
     const next = messages[index + 1];
@@ -269,20 +315,26 @@ export default function ChatScreen() {
       : item.senderId !== next?.senderId;
 
     const avatarColor = getAvatarColor(item.senderId);
-    const senderDisplay = (item as any).senderTeamEmoji
-      ? `${(item as any).senderTeamEmoji} ${item.senderNickname}`
-      : item.senderNickname;
+    const senderDisplay = item.senderTeamShort
+      ? `${item.senderNickname} · ${item.senderTeamShort}`
+      : (item as any).senderTeamEmoji
+        ? `${(item as any).senderTeamEmoji} ${item.senderNickname}`
+        : item.senderNickname;
 
     return (
       <View style={[styles.msgRow, mine && styles.msgRowMine]}>
         {!mine && (
           <View style={styles.avatarSlot}>
             {showAvatar ? (
-              <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-                <Text style={styles.avatarText}>
-                  {(item as any).senderTeamEmoji ?? item.senderNickname.slice(0, 1)}
-                </Text>
-              </View>
+              item.senderTeamShort ? (
+                <TeamEmblem shortName={item.senderTeamShort} size={38} />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                  <Text style={styles.avatarText}>
+                    {(item as any).senderTeamEmoji ?? item.senderNickname.slice(0, 1)}
+                  </Text>
+                </View>
+              )
             ) : null}
           </View>
         )}
@@ -451,7 +503,7 @@ export default function ChatScreen() {
         onClose={() => setBetSheetVisible(false)}
         roomId={roomIdNum}
         onBetCreated={(bet) => {
-          addBet(bet);
+          handleBetCreated(bet);
           setTab('bet');
         }}
       />
@@ -499,6 +551,15 @@ const styles = StyleSheet.create({
   messageList: { padding: 16, paddingBottom: 8, gap: 2 },
 
   msgRow: { flexDirection: 'row', marginVertical: 2, alignItems: 'flex-end' },
+  sysMsgRow: { alignItems: 'center', marginVertical: 8 },
+  sysMsgCard: {
+    backgroundColor: `${Colors.primary}12`,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    maxWidth: '85%',
+  },
+  sysMsgText: { fontSize: 12, fontWeight: '600', color: Colors.dark, textAlign: 'center', lineHeight: 18 },
   msgRowMine: { flexDirection: 'row-reverse' },
 
   avatarSlot: { width: 38, marginRight: 7, alignItems: 'center', justifyContent: 'flex-end' },

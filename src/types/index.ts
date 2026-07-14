@@ -44,9 +44,10 @@ export interface Game {
 export interface ChatMessage {
   id: string;
   roomId: string;
-  senderId: string;
+  senderId: string; // 시스템 안내 메시지는 'system'
   senderNickname: string;
   senderTeamEmoji?: string;
+  senderTeamShort?: string | null; // 발신 시점의 응원 구단 (엠블럼 표시용)
   content: string;
   type: 'TEXT' | 'IMAGE' | 'BET';
   imageUrl?: string;

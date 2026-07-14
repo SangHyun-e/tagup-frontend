@@ -15,6 +15,7 @@ import { Colors } from '../src/constants/colors';
 import { api } from '../src/lib/api';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { Team } from '../src/types';
+import { TeamEmblem } from '../src/components/emblems/TeamEmblem';
 
 export default function TeamSelectScreen() {
   const router = useRouter();
@@ -64,9 +65,9 @@ export default function TeamSelectScreen() {
             <Ionicons name="checkmark" size={12} color={Colors.white} />
           </View>
         )}
-        <Text style={styles.teamEmoji}>{item.emoji}</Text>
+        <TeamEmblem shortName={item.shortName} size={56} />
         <Text style={[styles.teamName, selected && styles.teamNameSelected]} numberOfLines={1}>
-          {item.shortName}
+          {item.name}
         </Text>
       </TouchableOpacity>
     );
@@ -164,7 +165,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  teamEmoji: { fontSize: 36 },
   teamName: { fontSize: 13, fontWeight: '700', color: Colors.textSub },
   teamNameSelected: { color: Colors.primary },
 });
