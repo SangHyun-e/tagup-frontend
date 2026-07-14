@@ -222,10 +222,13 @@ export default function ChatScreen() {
     return unsub;
   }, [chatKey]);
 
+  // 채팅 탭의 배팅 카드(콜/취소 버튼)도 배팅 상태가 필요하므로 진입 시 로드
   useEffect(() => {
-    if (tab === 'bet' && roomIdNum) {
-      fetchBets(roomIdNum);
-    }
+    if (roomIdNum) fetchBets(roomIdNum);
+  }, [roomIdNum]);
+
+  useEffect(() => {
+    if (tab === 'bet' && roomIdNum) fetchBets(roomIdNum);
   }, [tab, roomIdNum]);
 
   const sendMessage = useCallback(async () => {
@@ -310,10 +313,35 @@ export default function ChatScreen() {
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
     // 시스템 안내 메시지 (내기 제안/콜/취소/정산) — 가운데 정렬 카드
     if (item.senderId === 'system' || item.type === 'BET') {
+      const linkedBet = item.betId != null ? bets.find((b) => b.id === item.betId) : undefined;
+      const actionable = linkedBet?.status === 'PENDING';
+      const amProposer = linkedBet?.proposer.id === appUser?.id;
       return (
         <View style={styles.sysMsgRow}>
           <View style={styles.sysMsgCard}>
             <Text style={styles.sysMsgText}>{item.content}</Text>
+            {actionable && linkedBet && (
+              <View style={styles.sysMsgActions}>
+                {!amProposer && (
+                  <TouchableOpacity
+                    style={styles.sysAcceptBtn}
+                    onPress={() => handleAccept(linkedBet.id)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.sysAcceptText}>콜!</Text>
+                  </TouchableOpacity>
+                )}
+                {amProposer && (
+                  <TouchableOpacity
+                    style={styles.sysCancelBtn}
+                    onPress={() => handleCancel(linkedBet.id)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.sysCancelText}>취소</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
         </View>
       );
@@ -442,11 +470,11 @@ export default function ChatScreen() {
           {/* 입력바 */}
           <View style={styles.inputBar}>
             <TouchableOpacity
-              style={styles.callBtn}
+              style={styles.plusBtn}
               activeOpacity={0.7}
               onPress={() => setBetSheetVisible(true)}
             >
-              <Text style={styles.callBtnText}>배팅</Text>
+              <Ionicons name="add" size={22} color={Colors.textSub} />
             </TouchableOpacity>
             <TextInput
               style={styles.input}
@@ -481,7 +509,7 @@ export default function ChatScreen() {
             <View style={styles.centered}>
               <Text style={styles.emptyEmoji}>🤜</Text>
               <Text style={styles.emptyText}>아직 내기가 없어요</Text>
-              <Text style={styles.emptySubText}>채팅 탭의 배팅 버튼으로 걸어보세요</Text>
+              <Text style={styles.emptySubText}>채팅창 왼쪽 + 버튼으로 배팅을 걸어보세요</Text>
             </View>
           ) : (
             <FlatList
@@ -499,15 +527,6 @@ export default function ChatScreen() {
               showsVerticalScrollIndicator={false}
             />
           )}
-          {/* 내기 탭에서도 내기 제안 가능 */}
-          <TouchableOpacity
-            style={betStyles.newBetBtn}
-            onPress={() => setBetSheetVisible(true)}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="add" size={20} color="#fff" />
-            <Text style={betStyles.newBetBtnText}>내기 제안하기</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -574,6 +593,17 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
   },
   sysMsgText: { fontSize: 12, fontWeight: '600', color: Colors.dark, textAlign: 'center', lineHeight: 18 },
+  sysMsgActions: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 8 },
+  sysAcceptBtn: {
+    backgroundColor: Colors.primary, borderRadius: 999,
+    paddingHorizontal: 18, paddingVertical: 6,
+  },
+  sysAcceptText: { fontSize: 12, fontWeight: '900', color: '#fff' },
+  sysCancelBtn: {
+    backgroundColor: Colors.surface, borderRadius: 999, borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: 18, paddingVertical: 6,
+  },
+  sysCancelText: { fontSize: 12, fontWeight: '700', color: Colors.textSub },
   msgRowMine: { flexDirection: 'row-reverse' },
 
   avatarSlot: { width: 38, marginRight: 7, alignItems: 'center', justifyContent: 'flex-end' },
@@ -619,13 +649,11 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(255,255,255,0.95)',
   },
-  callBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: `${Colors.primary}18`,
+  plusBtn: {
+    width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
   },
-  callBtnText: { fontSize: 13, fontWeight: '900', color: Colors.success },
   input: {
     flex: 1, height: 42,
     backgroundColor: Colors.surface,
@@ -684,14 +712,4 @@ const betStyles = StyleSheet.create({
     borderRadius: 10, paddingVertical: 10, alignItems: 'center',
   },
   cancelBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textSub },
-
-  newBetBtn: {
-    position: 'absolute', bottom: 20, right: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.primary, borderRadius: 999,
-    paddingHorizontal: 18, paddingVertical: 12,
-    shadowColor: Colors.primary, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  newBetBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
 });
