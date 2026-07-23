@@ -44,23 +44,21 @@ function buildDateTabs() {
 
 const STATUS_LABEL: Record<string, string> = {
   SCHEDULED: '예정',
-  LIVE: 'LIVE',
-  FINAL: '종료',
+  IN_PROGRESS: 'LIVE',
   FINISHED: '종료',
   CANCELLED: '취소',
 };
 
 const STATUS_COLOR: Record<string, string> = {
   SCHEDULED: Colors.textSub,
-  LIVE: Colors.fail,
-  FINAL: Colors.placeholder,
+  IN_PROGRESS: Colors.fail,
   FINISHED: Colors.placeholder,
   CANCELLED: Colors.placeholder,
 };
 
 function GameCard({ game }: { game: Game }) {
-  const live = game.status === 'LIVE';
-  const ended = game.status === 'FINAL' || game.status === 'FINISHED';
+  const live = game.status === 'IN_PROGRESS';
+  const ended = game.status === 'FINISHED';
   const showScore = live || ended;
 
   const awayScore = game.awayScore ?? 0;
