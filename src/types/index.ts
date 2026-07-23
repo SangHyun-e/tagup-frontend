@@ -37,7 +37,7 @@ export interface Game {
   gameDate: string;
   gameTime?: string;
   startTime?: string;
-  status: 'SCHEDULED' | 'LIVE' | 'FINAL' | 'FINISHED' | 'CANCELLED';
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'FINISHED' | 'CANCELLED'; // BE GameStatus와 1:1
   inning: number | null;
 }
 

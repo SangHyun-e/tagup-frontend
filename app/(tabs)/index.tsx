@@ -35,8 +35,8 @@ function getRoomColor(name: string): string {
 
 
 function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?: string }) {
-  const live = game.status === 'LIVE';
-  const ended = game.status === 'FINAL' || game.status === 'FINISHED';
+  const live = game.status === 'IN_PROGRESS';
+  const ended = game.status === 'FINISHED';
   const awayScore = game.awayScore ?? 0;
   const homeScore = game.homeScore ?? 0;
 
@@ -161,7 +161,7 @@ export default function MainHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const myTeamShortName = appUser?.team?.shortName;
-  const liveGameIds = new Set(todayGames.filter((g) => g.status === 'LIVE').map((g) => g.id));
+  const liveGameIds = new Set(todayGames.filter((g) => g.status === 'IN_PROGRESS').map((g) => g.id));
 
   // 내 팀 경기를 맨 앞으로
   const sortedGames = myTeamShortName
