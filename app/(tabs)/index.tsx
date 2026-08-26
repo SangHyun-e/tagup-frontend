@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signOut } from 'firebase/auth';
+import { unregisterPushToken } from '../../src/lib/push';
 import { auth } from '../../src/lib/firebase';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRoomStore } from '../../src/store/useRoomStore';
@@ -187,6 +188,7 @@ export default function MainHomeScreen() {
   useFocusEffect(useCallback(() => { fetchAll(true); }, [fetchAll]));
 
   const handleLogout = async () => {
+    await unregisterPushToken();
     await signOut(auth);
     reset();
     router.replace('/login');

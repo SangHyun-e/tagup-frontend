@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
+import { unregisterPushToken } from '../../src/lib/push';
 import { auth } from '../../src/lib/firebase';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { Colors } from '../../src/constants/colors';
@@ -16,6 +17,7 @@ export default function ProfileScreen() {
   const myTeam = appUser?.team ?? null;
 
   const handleLogout = async () => {
+    await unregisterPushToken();
     await signOut(auth);
     reset();
     router.replace('/login');
