@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -27,7 +28,7 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRoomStore } from '../../src/store/useRoomStore';
 import { useBetStore } from '../../src/store/useBetStore';
 import { Colors } from '../../src/constants/colors';
-import { ChatMessage, Bet, Room } from '../../src/types';
+import { ChatMessage, Bet, Room, AtBatResult } from '../../src/types';
 import { BetSheet } from '../../src/components/BetSheet';
 import { api } from '../../src/lib/api';
 import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
@@ -53,6 +54,11 @@ function formatDate(str: string): string {
 
 type TabType = 'chat' | 'bet';
 
+/** BE 의 tagup.bet.at-bat-window-seconds 와 맞춘다 */
+const AT_BAT_WINDOW_MS = 30_000;
+/** 30초 창에서 내용을 입력받을 여유가 없어 기본값으로 건다 */
+const AT_BAT_DEFAULT_STAKE = '커피 한 잔';
+
 const BET_STATUS_LABEL: Record<string, string> = {
   PENDING: '대기 중',
   ACCEPTED: '수락됨',
@@ -66,6 +72,40 @@ const BET_STATUS_COLOR: Record<string, string> = {
   FINISHED: Colors.dark,
   CANCELLED: Colors.placeholder,
 };
+
+/**
+ * 타석 배팅의 '편' 이름.
+ *
+ * KBO 응답으로는 안타·볼넷·뜬공·땅볼을 구분할 수 없어 아웃/세이프뿐이다.
+ * 여기에 "안타" 같은 표현을 쓰면 없는 정보를 있는 것처럼 보여주게 된다.
+ */
+function atBatSideLabel(result?: AtBatResult | null): string {
+  if (result === 'OUT') return '아웃';
+  if (result === 'SAFE') return '세이프';
+  return '판정 불가';
+}
+
+/** 제안자가 건 쪽 */
+function mySideOf(bet: Bet): string {
+  return bet.type === 'AT_BAT'
+    ? atBatSideLabel(bet.atBat?.betOnResult)
+    : (bet.betOnTeam?.shortName ?? '');
+}
+
+/** 콜한 사람이 서게 되는 쪽 */
+function oppositeSideOf(bet: Bet): string {
+  if (bet.type === 'AT_BAT') {
+    return atBatSideLabel(bet.atBat?.betOnResult === 'OUT' ? 'SAFE' : 'OUT');
+  }
+  return bet.game.homeTeam === bet.betOnTeam?.shortName ? bet.game.awayTeam : bet.game.homeTeam;
+}
+
+/** 안내 메시지용 — 무엇에 걸었는지 한 줄 */
+function betTargetText(bet: Bet): string {
+  return bet.type === 'AT_BAT'
+    ? `${bet.atBat?.inning}회${bet.atBat?.half} ${bet.atBat?.batter} 타석 · ${mySideOf(bet)}에 배팅`
+    : `${mySideOf(bet)} 승리에 배팅`;
+}
 
 function BetCard({
   bet,
@@ -82,9 +122,19 @@ function BetCard({
   const isPending = bet.status === 'PENDING';
   const isFinished = bet.status === 'FINISHED';
 
-  // 제안자의 반대편 팀 (콜하는 사람이 배팅하게 되는 팀)
-  const oppositeTeam =
-    bet.game.homeTeam === bet.betOnTeam.shortName ? bet.game.awayTeam : bet.game.homeTeam;
+  const isAtBat = bet.type === 'AT_BAT';
+
+  // 제안자의 반대편 (콜하는 사람이 서게 되는 쪽)
+  // 승패 배팅이면 상대 팀, 타석 배팅이면 반대 결과
+  const oppositeLabel = isAtBat
+    ? atBatSideLabel(bet.atBat?.betOnResult === 'OUT' ? 'SAFE' : 'OUT')
+    : bet.game.homeTeam === bet.betOnTeam?.shortName
+      ? bet.game.awayTeam
+      : bet.game.homeTeam;
+
+  const mySideLabel = isAtBat
+    ? atBatSideLabel(bet.atBat?.betOnResult)
+    : (bet.betOnTeam?.shortName ?? '');
 
   // proposerResult는 제안자 기준 → 승자 닉네임으로 변환해 표시
   const resultLabel =
@@ -119,12 +169,20 @@ function BetCard({
       {/* 내용 */}
       <Text style={betStyles.content}>"{bet.content}"</Text>
 
-      {/* 팀 & 배팅 */}
+      {/* 무엇에 걸었는지 */}
       <View style={betStyles.teamRow}>
         <View style={betStyles.teamInfo}>
-          <TeamEmblem shortName={bet.betOnTeam.shortName} size={32} />
+          {isAtBat ? (
+            <Text style={betStyles.atBatIcon}>
+              {bet.atBat?.betOnResult === 'OUT' ? '🔴' : '🟢'}
+            </Text>
+          ) : (
+            <TeamEmblem shortName={bet.betOnTeam?.shortName ?? ''} size={32} />
+          )}
           <Text style={betStyles.teamName}>
-            {bet.betOnTeam.shortName} 승리에 배팅 · {bet.game.awayTeam} vs {bet.game.homeTeam}
+            {isAtBat
+              ? `${bet.atBat?.inning}회${bet.atBat?.half} ${bet.atBat?.batter} 타석 · ${mySideLabel}에 배팅`
+              : `${mySideLabel} 승리에 배팅 · ${bet.game.awayTeam} vs ${bet.game.homeTeam}`}
           </Text>
         </View>
       </View>
@@ -132,11 +190,12 @@ function BetCard({
       {/* 대진 정보 */}
       {bet.receiver ? (
         <Text style={betStyles.meta}>
-          {bet.proposer.nickname}({bet.betOnTeam.shortName}) vs {bet.receiver.nickname}({oppositeTeam})
+          {bet.proposer.nickname}({mySideLabel}) vs {bet.receiver.nickname}({oppositeLabel})
         </Text>
       ) : (
         <Text style={betStyles.metaOpen}>
-          {bet.proposer.nickname}님이 걸었어요 · 콜하면 {oppositeTeam} 승리에 배팅!
+          {bet.proposer.nickname}님이 걸었어요 · 콜하면 {oppositeLabel}
+          {isAtBat ? '에 배팅!' : ' 승리에 배팅!'}
         </Text>
       )}
 
@@ -277,7 +336,7 @@ export default function ChatScreen() {
   const handleBetCreated = (bet: Bet) => {
     addBet(bet);
     announceBetEvent(
-      `⚾ ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${bet.betOnTeam.shortName} 승리에 배팅`,
+      `⚾ ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${betTargetText(bet)}`,
       bet.id,
     );
   };
@@ -286,12 +345,9 @@ export default function ChatScreen() {
     try {
       const updated = await api.put<Bet>(`/api/v1/bets/${betId}/accept`, {});
       updateBet(updated);
-      const opposite =
-        updated.game.homeTeam === updated.betOnTeam.shortName
-          ? updated.game.awayTeam
-          : updated.game.homeTeam;
+      const opposite = oppositeSideOf(updated);
       announceBetEvent(
-        `📣 ${updated.receiver?.nickname}님이 콜! 배팅 성립\n${updated.proposer.nickname}(${updated.betOnTeam.shortName}) vs ${updated.receiver?.nickname}(${opposite}) · "${updated.content}"`,
+        `📣 ${updated.receiver?.nickname}님이 콜! 배팅 성립\n${updated.proposer.nickname}(${mySideOf(updated)}) vs ${updated.receiver?.nickname}(${opposite}) · "${updated.content}"`,
         updated.id,
       );
     } catch (e: any) {
@@ -309,9 +365,107 @@ export default function ChatScreen() {
     }
   };
 
+  // 타석 배팅 창은 30초라 1초마다 남은 시간을 다시 그린다.
+  // 창이 열려 있을 때만 타이머를 돌린다 — 경기 내내 초당 리렌더링할 이유가 없다.
+  const [nowTs, setNowTs] = useState(Date.now());
+  const latestAtBatStart = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.type === 'LIVE' && m.liveKind === 'AT_BAT_START') return m;
+      if (m.type === 'LIVE' && m.liveKind === 'AT_BAT_RESULT') return undefined; // 그 타석은 이미 끝났다
+    }
+    return undefined;
+  }, [messages]);
+
+  const windowOpen =
+    !!latestAtBatStart && nowTs - latestAtBatStart.createdAt < AT_BAT_WINDOW_MS;
+
+  useEffect(() => {
+    if (!latestAtBatStart) return;
+    if (Date.now() - latestAtBatStart.createdAt >= AT_BAT_WINDOW_MS) return;
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [latestAtBatStart]);
+
+  const [atBatSubmitting, setAtBatSubmitting] = useState(false);
+  const [betAtBatMsgId, setBetAtBatMsgId] = useState<string | null>(null);
+
+  const handleAtBatBet = async (betOnResult: AtBatResult) => {
+    if (atBatSubmitting) return;
+    setAtBatSubmitting(true);
+    try {
+      const bet = await api.post<Bet>(`/api/v1/rooms/${roomId}/bets/at-bat`, {
+        betOnResult,
+        content: AT_BAT_DEFAULT_STAKE,
+      });
+      addBet(bet);
+      if (latestAtBatStart) setBetAtBatMsgId(latestAtBatStart.id);
+      await announceBetEvent(
+        `⚾ ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${betTargetText(bet)}`,
+        bet.id,
+      );
+    } catch (e: any) {
+      // 서버가 창 마감·타석 없음 등을 구분해 알려준다
+      Alert.alert('배팅하지 못했어요', e?.message ?? '잠시 후 다시 시도해주세요.');
+    } finally {
+      setAtBatSubmitting(false);
+    }
+  };
+
   const isMyMessage = (msg: ChatMessage) => msg.senderId === firebaseUser?.uid;
 
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
+    // 실시간 중계 (서버 발송) — 타석 시작에만 배팅 버튼을 붙인다
+    if (item.type === 'LIVE') {
+      const isStart = item.liveKind === 'AT_BAT_START';
+      const isCurrent = latestAtBatStart?.id === item.id;
+      const alreadyBet = betAtBatMsgId === item.id;
+      const remainSec = Math.max(
+        0,
+        Math.ceil((item.createdAt + AT_BAT_WINDOW_MS - nowTs) / 1000),
+      );
+      const canBet = isStart && isCurrent && windowOpen && !alreadyBet;
+
+      return (
+        <View style={styles.liveRow}>
+          <View style={[styles.liveCard, isStart && styles.liveCardStart]}>
+            <Text style={styles.liveText}>{item.content}</Text>
+
+            {canBet && (
+              <>
+                <View style={styles.liveBetRow}>
+                  <TouchableOpacity
+                    style={[styles.liveBetBtn, styles.liveBetOut]}
+                    onPress={() => handleAtBatBet('OUT')}
+                    disabled={atBatSubmitting}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.liveBetBtnText}>🔴 아웃</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.liveBetBtn, styles.liveBetSafe]}
+                    onPress={() => handleAtBatBet('SAFE')}
+                    disabled={atBatSubmitting}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.liveBetBtnText}>🟢 세이프</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.liveCountdown}>
+                  {remainSec}초 남음 · {AT_BAT_DEFAULT_STAKE} 내기
+                </Text>
+              </>
+            )}
+
+            {isStart && isCurrent && !windowOpen && !alreadyBet && (
+              <Text style={styles.liveClosed}>배팅 마감 · 다음 타석을 기다려주세요</Text>
+            )}
+            {alreadyBet && <Text style={styles.liveClosed}>배팅했어요 · 콜을 기다리는 중</Text>}
+          </View>
+        </View>
+      );
+    }
+
     // 시스템 안내 메시지 (내기 제안/콜/취소/정산) — 가운데 정렬 카드
     if (item.senderId === 'system' || item.type === 'BET') {
       const linkedBet = item.betId != null ? bets.find((b) => b.id === item.betId) : undefined;
@@ -605,6 +759,26 @@ const styles = StyleSheet.create({
   messageList: { padding: 16, paddingBottom: 8, gap: 2 },
 
   msgRow: { flexDirection: 'row', marginVertical: 2, alignItems: 'flex-end' },
+  // 실시간 중계 — 경기당 140~200건이 흐르므로 대화보다 눈에 덜 띄게 둔다
+  liveRow: { alignItems: 'center', marginVertical: 3 },
+  liveCard: {
+    maxWidth: '88%',
+    backgroundColor: '#EFEFEF',
+    borderRadius: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+    gap: 7,
+  },
+  liveCardStart: { backgroundColor: '#E8F4E3', borderWidth: 1, borderColor: '#C9E4BC' },
+  liveText: { fontSize: 13, color: '#4A4A4A', textAlign: 'center', lineHeight: 19 },
+  liveBetRow: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
+  liveBetBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 16 },
+  liveBetOut: { backgroundColor: '#FDE7E7' },
+  liveBetSafe: { backgroundColor: '#E3F3DC' },
+  liveBetBtnText: { fontSize: 14, fontWeight: '800', color: '#1E1E1E' },
+  liveCountdown: { fontSize: 11, color: '#8A8A8A', textAlign: 'center' },
+  liveClosed: { fontSize: 11, color: '#9A9A9A', textAlign: 'center' },
+
   sysMsgRow: { alignItems: 'center', marginVertical: 8 },
   sysMsgCard: {
     backgroundColor: `${Colors.primary}12`,
@@ -729,6 +903,7 @@ const betStyles = StyleSheet.create({
   content: { fontSize: 16, fontWeight: '800', color: Colors.dark },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   teamInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  atBatIcon: { fontSize: 26, width: 32, textAlign: 'center' },
   teamName: { fontSize: 13, fontWeight: '600', color: Colors.textSub },
 
   meta: { fontSize: 12, color: Colors.placeholder },
