@@ -137,9 +137,12 @@ function BetCard({
     : (bet.betOnTeam?.shortName ?? '');
 
   // proposerResult는 제안자 기준 → 승자 닉네임으로 변환해 표시
+  // 타석 배팅의 DRAW는 비긴 게 아니라 '결과를 판정하지 못해 무효'다 (중계 데이터가 끊긴 타석,
+  // 경기 마지막 타석을 놓친 경우 등). 무승부라고 쓰면 오해한다.
+  const isVoid = bet.proposerResult === 'DRAW' && isAtBat;
   const resultLabel =
     bet.proposerResult === 'DRAW'
-      ? '🤝 무승부'
+      ? (isAtBat ? '⚖️ 무효' : '🤝 무승부')
       : bet.proposerResult === 'WIN'
         ? `🏆 ${bet.proposer.nickname} 승`
         : bet.proposerResult === 'LOSE'
@@ -148,6 +151,7 @@ function BetCard({
   const iWon =
     (bet.proposerResult === 'WIN' && isProposer) ||
     (bet.proposerResult === 'LOSE' && !isProposer);
+  const isDraw = bet.proposerResult === 'DRAW';
 
   return (
     <View style={betStyles.card}>
@@ -159,7 +163,12 @@ function BetCard({
           </Text>
         </View>
         {isFinished && resultLabel && (
-          <View style={[betStyles.resultBadge, iWon ? betStyles.winBadge : betStyles.loseBadge]}>
+          <View
+            style={[
+              betStyles.resultBadge,
+              isDraw ? betStyles.drawBadge : iWon ? betStyles.winBadge : betStyles.loseBadge,
+            ]}
+          >
             <Text style={betStyles.resultText}>{resultLabel}</Text>
           </View>
         )}
@@ -168,6 +177,9 @@ function BetCard({
 
       {/* 내용 */}
       <Text style={betStyles.content}>"{bet.content}"</Text>
+      {isVoid && (
+        <Text style={betStyles.voidNote}>타석 결과를 확인하지 못해 무효 처리됐어요</Text>
+      )}
 
       {/* 무엇에 걸었는지 */}
       <View style={betStyles.teamRow}>
@@ -897,6 +909,7 @@ const betStyles = StyleSheet.create({
   resultBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   winBadge: { backgroundColor: `${Colors.primary}20` },
   loseBadge: { backgroundColor: `${Colors.fail}18` },
+  drawBadge: { backgroundColor: `${Colors.placeholder}20` },
   resultText: { fontSize: 11, fontWeight: '800', color: Colors.dark },
   dateText: { fontSize: 10, color: Colors.placeholder, marginLeft: 'auto' },
 
@@ -906,6 +919,7 @@ const betStyles = StyleSheet.create({
   atBatIcon: { fontSize: 26, width: 32, textAlign: 'center' },
   teamName: { fontSize: 13, fontWeight: '600', color: Colors.textSub },
 
+  voidNote: { fontSize: 12, color: Colors.placeholder, marginTop: 2 },
   meta: { fontSize: 12, color: Colors.placeholder },
   metaOpen: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginTop: 2 },
 
