@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '../src/components/common/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../src/constants/colors';
 import { api } from '../src/lib/api';

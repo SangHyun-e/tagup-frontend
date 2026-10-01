@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Modal,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text } from '../components/common/Text';
 import { Colors } from '../constants/colors';
 import { api } from '../lib/api';
 import { Game, Bet, Team } from '../types';
