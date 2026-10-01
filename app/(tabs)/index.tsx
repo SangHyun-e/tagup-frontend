@@ -23,6 +23,8 @@ import { useRoomStore } from '../../src/store/useRoomStore';
 import { api } from '../../src/lib/api';
 import { Colors } from '../../src/constants/colors';
 import { Room, Game } from '../../src/types';
+import { buildGreeting } from '../../src/features/home/greeting';
+import { Type, Spacing } from '../../src/constants/theme';
 import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
 
 type ModalType = 'create' | 'join' | null;
@@ -38,8 +40,13 @@ function getRoomColor(name: string): string {
 function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?: string }) {
   const live = game.status === 'IN_PROGRESS';
   const ended = game.status === 'FINISHED';
-  const awayScore = game.awayScore ?? 0;
-  const homeScore = game.homeScore ?? 0;
+
+  // 경기 중에는 game.awayScore 가 null 이다 — KBO가 경기 중 점수를 0:0으로 주기 때문에
+  // 서버가 버린다. 진행 중 점수는 live 에서 읽어야 한다 (docs/LIVE_GAME_API.md)
+  const state = game.live;
+  const awayScore = live ? state?.awayScore : game.awayScore;
+  const homeScore = live ? state?.homeScore : game.homeScore;
+  const hasScore = awayScore != null && homeScore != null;
 
   const myTeamIsAway = game.awayTeam.shortName === myTeamShortName;
   const myTeamIsHome = game.homeTeam.shortName === myTeamShortName;
@@ -49,7 +56,7 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
   const oppTeam = myTeamIsAway ? game.homeTeam : game.awayTeam;
   const myScore = myTeamIsAway ? awayScore : homeScore;
   const oppScore = myTeamIsAway ? homeScore : awayScore;
-  const myWin = ended && myScore > oppScore;
+  const myWin = ended && myScore != null && oppScore != null && myScore > oppScore;
 
   const time = ((game as any).gameTime ?? game.startTime ?? '').slice(0, 5);
 
@@ -60,7 +67,7 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
         {live ? (
           <View style={styles.livePill}>
             <View style={styles.liveDot} />
-            <Text style={styles.livePillText}>LIVE · {game.inning != null ? `${game.inning}이닝` : ''}</Text>
+            <Text style={styles.livePillText}>{liveLabel(game)}</Text>
           </View>
         ) : ended ? (
           <View style={styles.endedPill}>
@@ -88,7 +95,7 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
 
         {/* 스코어 or VS */}
         <View style={styles.heroCenter}>
-          {(live || ended) ? (
+          {hasScore ? (
             <View style={styles.heroScoreRow}>
               <Text style={[styles.heroScoreNum, myTeamIsAway && myWin && styles.heroScoreWin,
                 !myTeamIsAway && !myWin && ended && styles.heroScoreLose]}>
@@ -115,8 +122,31 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
           )}
         </View>
       </View>
+
+      {live && state && <Text style={styles.heroSituation}>{situationLine(state)}</Text>}
     </View>
   );
+}
+
+/** "7회초 · 2아웃" 같은 상단 배지 문구 */
+function liveLabel(game: Game): string {
+  const state = game.live;
+  if (!state?.inning) return 'LIVE';
+  return `${state.inning}회${state.half === 'BOTTOM' ? '말' : '초'}`;
+}
+
+/** 카드 아래 한 줄 — 아웃카운트와 주자 */
+function situationLine(state: NonNullable<Game['live']>): string {
+  const outs = state.out != null ? `${state.out}아웃` : '';
+  const bases = [
+    state.bases?.first && '1루',
+    state.bases?.second && '2루',
+    state.bases?.third && '3루',
+  ].filter(Boolean);
+
+  const runners = bases.length > 0 ? `주자 ${bases.join('·')}` : '주자 없음';
+  const batter = state.batter ? ` · ${state.batter} 타석` : '';
+  return [outs, runners].filter(Boolean).join(' · ') + batter;
 }
 
 function RoomListItem({ room, liveGameIds, onPress }: { room: Room; liveGameIds: Set<number>; onPress: () => void }) {
@@ -162,6 +192,7 @@ export default function MainHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const myTeamShortName = appUser?.team?.shortName;
+  const greeting = buildGreeting({ myTeamShortName, games: todayGames });
   const liveGameIds = new Set(todayGames.filter((g) => g.status === 'IN_PROGRESS').map((g) => g.id));
 
   // 내 팀 경기를 맨 앞으로
@@ -245,13 +276,10 @@ export default function MainHomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchAll()} tintColor={Colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* 인사말 */}
+        {/* 인사말 — 응원팀과 그 팀 경기 상태에 따라 바뀐다 */}
         <View style={styles.greetingRow}>
-          <Text style={styles.greeting}>
-            {appUser?.team?.emoji ? `${appUser.team.emoji} ` : ''}안녕하세요,{' '}
-            <Text style={styles.greetingName}>{appUser?.nickname ?? '야구팬'}</Text>님!
-          </Text>
-          <Text style={styles.greetingSub}>오늘도 콜?</Text>
+          <Text style={styles.greeting}>{greeting.title}</Text>
+          <Text style={styles.greetingSub}>{greeting.subtitle}</Text>
         </View>
 
         {/* 오늘의 경기 */}
@@ -274,14 +302,14 @@ export default function MainHomeScreen() {
             <Text style={styles.sectionTitle}>내 더그아웃</Text>
             <TouchableOpacity style={styles.addButton} onPress={() => setModal('create')}>
               <Ionicons name="add" size={14} color={Colors.primary} />
-              <Text style={styles.addButtonText}>태그업 하기</Text>
+              <Text style={styles.addButtonText}>더그아웃 만들기</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.tagCodeRow}>
             <TouchableOpacity style={styles.tagCodeBtn} onPress={() => setModal('join')}>
               <Ionicons name="key-outline" size={15} color={Colors.textSub} />
-              <Text style={styles.tagCodeBtnText}>태그코드로 입장</Text>
+              <Text style={styles.tagCodeBtnText}>코드로 들어가기</Text>
             </TouchableOpacity>
           </View>
 
@@ -384,12 +412,17 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 60, gap: 24, paddingTop: 20 },
 
   greetingRow: { paddingHorizontal: 20, gap: 2 },
-  greeting: { fontSize: 22, fontWeight: '700', color: Colors.dark },
-  greetingName: { fontWeight: '900' },
-  greetingSub: { fontSize: 13, color: Colors.textSub, fontWeight: '600', marginTop: 2 },
+  heroSituation: {
+    ...Type.micro,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
+  greeting: { ...Type.screenTitle, color: Colors.dark },
+  greetingSub: { ...Type.caption, color: Colors.textMuted, marginTop: 3 },
 
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.dark },
+  sectionTitle: { ...Type.sectionTitle, color: Colors.dark },
 
   // 오늘의 경기
   gameScroll: { paddingHorizontal: 20, gap: 12 },
@@ -407,7 +440,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#16181D', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
   },
   liveDot: { width: 7, height: 7, borderRadius: 999, backgroundColor: '#FF3B30' },
-  livePillText: { fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
+  livePillText: { ...Type.badge, color: '#fff', letterSpacing: 0.3 },
   prePill: {
     backgroundColor: `${Colors.primary}18`, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
   },
@@ -431,7 +464,7 @@ const styles = StyleSheet.create({
 
   heroCenter: { flex: 0, alignItems: 'center', paddingHorizontal: 6 },
   heroScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  heroScoreNum: { fontSize: 36, fontWeight: '900', color: Colors.dark, minWidth: 32, textAlign: 'center' },
+  heroScoreNum: { ...Type.score, color: Colors.dark, minWidth: 32, textAlign: 'center' },
   heroScoreWin: { color: Colors.primary },
   heroScoreLose: { color: Colors.placeholder },
   heroScoreSep: { fontSize: 20, color: Colors.border, marginTop: 4 },
