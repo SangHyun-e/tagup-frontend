@@ -1,13 +1,13 @@
 import React, { useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   Dimensions,
   TouchableOpacity,
   ListRenderItem,
 } from 'react-native';
+import { Text } from '../components/common/Text';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from '../components/common/Button';

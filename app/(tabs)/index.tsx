@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -11,6 +10,7 @@ import {
   RefreshControl,
   ScrollView,
 } from 'react-native';
+import { Text } from '../../src/components/common/Text';
 import LogoBubble from '../../assets/images/tagup_logo_bubble.svg';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
