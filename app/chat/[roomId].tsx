@@ -28,10 +28,12 @@ import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRoomStore } from '../../src/store/useRoomStore';
 import { useBetStore } from '../../src/store/useBetStore';
 import { Colors } from '../../src/constants/colors';
+import { Radius, Spacing, Type } from '../../src/constants/theme';
 import { ChatMessage, Bet, Room, AtBatResult } from '../../src/types';
 import { BetSheet } from '../../src/components/BetSheet';
 import { api } from '../../src/lib/api';
 import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
+import { LiveRelayLine } from '../../src/components/chat/LiveRelayLine';
 
 const AVATAR_COLORS = ['#4C82F7', '#FF6FA5', '#34C759', '#5B8DEF', '#FF9F0A', '#AF52DE', '#FC4E00', '#00BCD4'];
 function getAvatarColor(uid: string): string {
@@ -56,6 +58,8 @@ type TabType = 'chat' | 'bet';
 
 /** BE 의 tagup.bet.at-bat-window-seconds 와 맞춘다 */
 const AT_BAT_WINDOW_MS = 30_000;
+/** 창이 닫힌 뒤 안내를 남겨두는 시간 */
+const AT_BAT_CARD_LINGER_MS = 5 * 60_000;
 /** 30초 창에서 내용을 입력받을 여유가 없어 기본값으로 건다 */
 const AT_BAT_DEFAULT_STAKE = '커피 한 잔';
 
@@ -438,10 +442,17 @@ export default function ChatScreen() {
       );
       const canBet = isStart && isCurrent && windowOpen && !alreadyBet;
 
+      // 창이 닫힌 뒤에도 잠깐은 "지났어요"를 남겨 왜 못 걸었는지 알려준다.
+      // 다만 하루 지난 타석까지 카드가 남으면 군더더기라 5분까지만 보여준다.
+      const recentlyClosed =
+        isStart && isCurrent && !windowOpen && nowTs - item.createdAt < AT_BAT_CARD_LINGER_MS;
+
       return (
         <View style={styles.liveRow}>
-          <View style={[styles.liveCard, isStart && styles.liveCardStart]}>
-            <Text style={styles.liveText}>{item.content}</Text>
+          <LiveRelayLine message={item} />
+
+          {(canBet || recentlyClosed || alreadyBet) && (
+          <View style={styles.liveCard}>
 
             {canBet && (
               <>
@@ -452,7 +463,8 @@ export default function ChatScreen() {
                     disabled={atBatSubmitting}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.liveBetBtnText}>🔴 아웃</Text>
+                    <Ionicons name="close" size={16} color={Colors.out} />
+                    <Text style={[styles.liveBetBtnText, { color: Colors.out }]}>아웃</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.liveBetBtn, styles.liveBetSafe]}
@@ -460,20 +472,22 @@ export default function ChatScreen() {
                     disabled={atBatSubmitting}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.liveBetBtnText}>🟢 세이프</Text>
+                    <Ionicons name="checkmark" size={16} color={Colors.safe} />
+                    <Text style={[styles.liveBetBtnText, { color: Colors.safe }]}>세이프</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.liveCountdown}>
-                  {remainSec}초 남음 · {AT_BAT_DEFAULT_STAKE} 내기
+                  {remainSec}초 남음 · {AT_BAT_DEFAULT_STAKE}
                 </Text>
               </>
             )}
 
-            {isStart && isCurrent && !windowOpen && !alreadyBet && (
-              <Text style={styles.liveClosed}>배팅 마감 · 다음 타석을 기다려주세요</Text>
+            {recentlyClosed && !alreadyBet && (
+              <Text style={styles.liveClosed}>이번 타석은 지났어요</Text>
             )}
-            {alreadyBet && <Text style={styles.liveClosed}>배팅했어요 · 콜을 기다리는 중</Text>}
+            {alreadyBet && <Text style={styles.liveClosed}>걸어뒀어요 · 콜 대기 중</Text>}
           </View>
+          )}
         </View>
       );
     }
@@ -772,24 +786,34 @@ const styles = StyleSheet.create({
 
   msgRow: { flexDirection: 'row', marginVertical: 2, alignItems: 'flex-end' },
   // 실시간 중계 — 경기당 140~200건이 흐르므로 대화보다 눈에 덜 띄게 둔다
-  liveRow: { alignItems: 'center', marginVertical: 3 },
+  liveRow: { alignItems: 'center', marginVertical: 5, gap: 8 },
+  // 지금 타석의 배팅 창. 중계 줄(LiveRelayLine)과 달리 눈에 띄어야 한다
   liveCard: {
-    maxWidth: '88%',
-    backgroundColor: '#EFEFEF',
-    borderRadius: 12,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
-    gap: 7,
+    width: '100%',
+    backgroundColor: '#F7FBF6',
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: 10,
   },
-  liveCardStart: { backgroundColor: '#E8F4E3', borderWidth: 1, borderColor: '#C9E4BC' },
-  liveText: { fontSize: 13, color: '#4A4A4A', textAlign: 'center', lineHeight: 19 },
   liveBetRow: { flexDirection: 'row', gap: 8, justifyContent: 'center' },
-  liveBetBtn: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 16 },
-  liveBetOut: { backgroundColor: '#FDE7E7' },
-  liveBetSafe: { backgroundColor: '#E3F3DC' },
-  liveBetBtnText: { fontSize: 14, fontWeight: '800', color: '#1E1E1E' },
-  liveCountdown: { fontSize: 11, color: '#8A8A8A', textAlign: 'center' },
-  liveClosed: { fontSize: 11, color: '#9A9A9A', textAlign: 'center' },
+  liveBetBtn: {
+    flex: 1,
+    height: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    backgroundColor: Colors.white,
+  },
+  liveBetOut: { borderColor: Colors.out },
+  liveBetSafe: { borderColor: Colors.safe },
+  liveBetBtnText: { ...Type.button, fontSize: 14.5 },
+  liveCountdown: { ...Type.micro, color: Colors.textMuted, textAlign: 'center' },
+  liveClosed: { ...Type.micro, color: Colors.textMuted, textAlign: 'center' },
 
   sysMsgRow: { alignItems: 'center', marginVertical: 8 },
   sysMsgCard: {
