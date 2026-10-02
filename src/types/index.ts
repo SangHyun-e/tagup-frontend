@@ -27,6 +27,22 @@ export interface Room {
   createdAt: string;
 }
 
+/** 진행 중인 경기의 지금 상태. 서버가 15초마다 KBO에서 받아둔 값 (docs/LIVE_GAME_API.md) */
+export interface LiveState {
+  inning: number | null;
+  half: 'TOP' | 'BOTTOM' | null;
+  awayScore: number | null;
+  homeScore: number | null;
+  out: number | null;
+  ball: number | null;
+  strike: number | null;
+  bases: { first: boolean; second: boolean; third: boolean };
+  batter: string | null;
+  pitcher: string | null;
+  /** 서버가 이 값을 받은 시각 (ISO) */
+  updatedAt: string;
+}
+
 export interface Game {
   id: number;
   homeTeam: Team;
@@ -39,6 +55,13 @@ export interface Game {
   startTime?: string;
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'FINISHED' | 'CANCELLED'; // BE GameStatus와 1:1
   inning: number | null;
+  /**
+   * 진행 중이고 서버 수집이 살아 있을 때만 채워진다.
+   *
+   * 경기 중에는 homeScore/awayScore 가 null 이다 — KBO 일정 API가 경기 중 점수를 0:0으로
+   * 주기 때문에 서버가 버린다. **경기 중 점수는 반드시 이 필드에서 읽을 것.**
+   */
+  live?: LiveState | null;
 }
 
 export interface ChatMessage {
