@@ -76,9 +76,30 @@ export interface ChatMessage {
   type: 'TEXT' | 'IMAGE' | 'BET' | 'LIVE';
   /** type === 'LIVE' 일 때만. AT_BAT_START 에 배팅 버튼을 붙인다 */
   liveKind?: 'AT_BAT_START' | 'AT_BAT_RESULT';
+  /**
+   * 중계 내용을 그릴 재료 (docs/LIVE_RELAY_MESSAGE.md).
+   *
+   * 2026-10-02 이전 메시지에는 없다 — 그때는 서버가 이모지까지 박은 완성 문장만 보냈다.
+   * 없으면 content 를 그대로 출력할 것.
+   */
+  live?: LiveRelay;
   imageUrl?: string;
   betId?: number;
   createdAt: number;
+}
+
+/** 서버가 보내는 중계 재료. 판별하지 못한 값은 키 자체가 없다 */
+export interface LiveRelay {
+  inning?: number;
+  half?: 'TOP' | 'BOTTOM';
+  batter?: string;
+  pitcher?: string;
+  /** 타석 시작에만 — 직전 타석과 투수가 다르면 true */
+  pitcherChanged?: boolean;
+  /** 타석 결과에만. KBO는 안타·볼넷·뜬공을 구분해주지 않는다 */
+  result?: 'OUT' | 'SAFE' | 'UNKNOWN';
+  runsScored?: number;
+  endedInning?: boolean;
 }
 
 export interface RoomMember {
