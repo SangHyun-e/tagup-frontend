@@ -63,17 +63,24 @@ const AT_BAT_CARD_LINGER_MS = 5 * 60_000;
 /** 30초 창에서 내용을 입력받을 여유가 없어 기본값으로 건다 */
 const AT_BAT_DEFAULT_STAKE = '커피 한 잔';
 
+/** "7회초" — half 가 TOP/BOTTOM 그대로 찍히던 것을 한글로 */
+function atBatWhere(bet: Bet): string {
+  const at = bet.atBat;
+  if (!at?.inning) return '';
+  return `${at.inning}회${at.half === 'BOTTOM' ? '말' : '초'}`;
+}
+
 const BET_STATUS_LABEL: Record<string, string> = {
-  PENDING: '대기 중',
-  ACCEPTED: '수락됨',
-  FINISHED: '정산 완료',
-  CANCELLED: '취소됨',
+  PENDING: '콜 대기',
+  ACCEPTED: '성립',
+  FINISHED: '종료',
+  CANCELLED: '취소',
 };
 
 const BET_STATUS_COLOR: Record<string, string> = {
-  PENDING: Colors.primary,
-  ACCEPTED: '#4C82F7',
-  FINISHED: Colors.dark,
+  PENDING: Colors.textSub,
+  ACCEPTED: Colors.primary,
+  FINISHED: Colors.textSub,
   CANCELLED: Colors.placeholder,
 };
 
@@ -146,11 +153,11 @@ function BetCard({
   const isVoid = bet.proposerResult === 'DRAW' && isAtBat;
   const resultLabel =
     bet.proposerResult === 'DRAW'
-      ? (isAtBat ? '⚖️ 무효' : '🤝 무승부')
+      ? (isAtBat ? '무효' : '무승부')
       : bet.proposerResult === 'WIN'
-        ? `🏆 ${bet.proposer.nickname} 승`
+        ? `${bet.proposer.nickname} 적중`
         : bet.proposerResult === 'LOSE'
-          ? `🏆 ${bet.receiver?.nickname ?? '상대'} 승`
+          ? `${bet.receiver?.nickname ?? '상대'} 적중`
           : null;
   const iWon =
     (bet.proposerResult === 'WIN' && isProposer) ||
@@ -189,16 +196,25 @@ function BetCard({
       <View style={betStyles.teamRow}>
         <View style={betStyles.teamInfo}>
           {isAtBat ? (
-            <Text style={betStyles.atBatIcon}>
-              {bet.atBat?.betOnResult === 'OUT' ? '🔴' : '🟢'}
-            </Text>
+            <View
+              style={[
+                betStyles.atBatIcon,
+                { backgroundColor: bet.atBat?.betOnResult === 'OUT' ? Colors.outSoft : Colors.safeSoft },
+              ]}
+            >
+              <Ionicons
+                name={bet.atBat?.betOnResult === 'OUT' ? 'close' : 'checkmark'}
+                size={18}
+                color={bet.atBat?.betOnResult === 'OUT' ? Colors.out : Colors.safe}
+              />
+            </View>
           ) : (
             <TeamEmblem shortName={bet.betOnTeam?.shortName ?? ''} size={32} />
           )}
           <Text style={betStyles.teamName}>
             {isAtBat
-              ? `${bet.atBat?.inning}회${bet.atBat?.half} ${bet.atBat?.batter} 타석 · ${mySideLabel}에 배팅`
-              : `${mySideLabel} 승리에 배팅 · ${bet.game.awayTeam} vs ${bet.game.homeTeam}`}
+              ? `${atBatWhere(bet)} ${bet.atBat?.batter} 타석 · ${mySideLabel}`
+              : `${mySideLabel} 승리 · ${bet.game.awayTeam} vs ${bet.game.homeTeam}`}
           </Text>
         </View>
       </View>
@@ -757,7 +773,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 15, fontWeight: '800', color: Colors.dark },
+  headerTitle: { ...Type.sectionTitle, fontSize: 15, color: Colors.dark },
 
   tabBar: {
     flexDirection: 'row',
@@ -769,7 +785,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12, gap: 6, borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabItemActive: { borderBottomColor: Colors.primary },
-  tabText: { fontSize: 14, fontWeight: '700', color: Colors.textSub },
+  tabText: { ...Type.button, color: Colors.textMuted },
   tabTextActive: { color: Colors.primary },
   tabBadge: {
     backgroundColor: Colors.fail, borderRadius: 999,
@@ -815,26 +831,29 @@ const styles = StyleSheet.create({
   liveCountdown: { ...Type.micro, color: Colors.textMuted, textAlign: 'center' },
   liveClosed: { ...Type.micro, color: Colors.textMuted, textAlign: 'center' },
 
-  sysMsgRow: { alignItems: 'center', marginVertical: 8 },
+  sysMsgRow: { alignItems: 'stretch', marginVertical: 10 },
+  // 내기 제안·정산 안내. 대화보다 한 단계 또렷해야 하지만 배팅 창만큼 튀면 안 된다
   sysMsgCard: {
-    backgroundColor: `${Colors.primary}12`,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    maxWidth: '85%',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: 10,
   },
-  sysMsgText: { fontSize: 12, fontWeight: '600', color: Colors.dark, textAlign: 'center', lineHeight: 18 },
-  sysMsgActions: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 8 },
+  sysMsgText: { ...Type.caption, color: Colors.dark, textAlign: 'center' },
+  sysMsgActions: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   sysAcceptBtn: {
-    backgroundColor: Colors.primary, borderRadius: 999,
-    paddingHorizontal: 18, paddingVertical: 6,
+    backgroundColor: Colors.primary, borderRadius: Radius.md,
+    paddingHorizontal: 22, height: 38, justifyContent: 'center',
   },
-  sysAcceptText: { fontSize: 12, fontWeight: '900', color: '#fff' },
+  sysAcceptText: { ...Type.button, fontSize: 13, color: Colors.white },
   sysCancelBtn: {
-    backgroundColor: Colors.surface, borderRadius: 999, borderWidth: 1, borderColor: Colors.border,
-    paddingHorizontal: 18, paddingVertical: 6,
+    backgroundColor: Colors.white, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.borderStrong,
+    paddingHorizontal: 22, height: 38, justifyContent: 'center',
   },
-  sysCancelText: { fontSize: 12, fontWeight: '700', color: Colors.textSub },
+  sysCancelText: { ...Type.button, fontSize: 13, color: Colors.textSub },
   msgRowMine: { flexDirection: 'row-reverse' },
 
   avatarSlot: { width: 38, marginRight: 7, alignItems: 'center', justifyContent: 'flex-end' },
@@ -842,36 +861,33 @@ const styles = StyleSheet.create({
     width: 34, height: 34, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  avatarText: { ...Type.badge, fontSize: 13, color: Colors.white },
 
   bubble: { maxWidth: '74%' },
   bubbleMineWrap: { alignItems: 'flex-end' },
 
   bubbleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 5 },
 
-  sender: { fontSize: 11, color: Colors.textSub, fontWeight: '700', marginBottom: 3, marginLeft: 2 },
+  sender: { ...Type.micro, color: Colors.textMuted, marginBottom: 3, marginLeft: 2 },
 
   bubbleInner: {
-    borderRadius: 18, paddingHorizontal: 13, paddingVertical: 10, flexShrink: 1,
+    borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10, flexShrink: 1,
   },
+  // 그림자를 걷었다. 한 화면에 말풍선이 수십 개 쌓이는데 저마다 그림자를 지면 화면이 지저분해진다
   bubbleMine: {
     backgroundColor: Colors.primary,
-    borderTopRightRadius: 5,
-    shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    borderBottomRightRadius: 5,
   },
-  bubbleMineMiddle: { borderTopRightRadius: 18, borderBottomRightRadius: 18 },
+  bubbleMineMiddle: { borderBottomRightRadius: 16, borderTopRightRadius: 16 },
   bubbleOther: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 5,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    backgroundColor: Colors.white,
+    borderBottomLeftRadius: 5,
   },
-  msgText: { fontSize: 14.5, color: Colors.dark, lineHeight: 20, fontWeight: '500' },
-  msgTextMine: { color: '#fff', fontWeight: '600' },
+  msgText: { ...Type.body, color: Colors.dark },
+  msgTextMine: { color: Colors.white },
 
-  timestamp: { fontSize: 10, color: Colors.placeholder, fontWeight: '600', marginBottom: 3 },
-  timestampOther: { fontSize: 10, color: Colors.placeholder, fontWeight: '600', alignSelf: 'flex-end', marginBottom: 3 },
+  timestamp: { ...Type.micro, fontSize: 10, color: Colors.placeholder, marginBottom: 3 },
+  timestampOther: { ...Type.micro, fontSize: 10, color: Colors.placeholder, alignSelf: 'flex-end', marginBottom: 3 },
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end',
@@ -920,44 +936,41 @@ const styles = StyleSheet.create({
 
 const betStyles = StyleSheet.create({
   list: { padding: 16, gap: 12, paddingBottom: 80 },
+  // 그림자 대신 선으로 띄운다. 카드가 여러 장 쌓이면 그림자는 지저분해진다
   card: {
-    backgroundColor: Colors.background,
-    borderRadius: 16, borderWidth: 1.5, borderColor: Colors.border,
-    padding: 16, gap: 10,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border,
+    padding: Spacing.lg, gap: 10,
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 11, fontWeight: '800' },
+  statusText: { ...Type.badge },
   resultBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   winBadge: { backgroundColor: `${Colors.primary}20` },
   loseBadge: { backgroundColor: `${Colors.fail}18` },
   drawBadge: { backgroundColor: `${Colors.placeholder}20` },
-  resultText: { fontSize: 11, fontWeight: '800', color: Colors.dark },
-  dateText: { fontSize: 10, color: Colors.placeholder, marginLeft: 'auto' },
+  resultText: { ...Type.badge, color: Colors.dark },
+  dateText: { ...Type.micro, fontSize: 10, color: Colors.placeholder, marginLeft: 'auto' },
 
-  content: { fontSize: 16, fontWeight: '800', color: Colors.dark },
+  content: { ...Type.sectionTitle, color: Colors.dark },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   teamInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  atBatIcon: { fontSize: 26, width: 32, textAlign: 'center' },
-  teamName: { fontSize: 13, fontWeight: '600', color: Colors.textSub },
+  atBatIcon: { width: 32, height: 32, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
+  teamName: { ...Type.caption, fontSize: 13, color: Colors.textSub },
 
-  voidNote: { fontSize: 12, color: Colors.placeholder, marginTop: 2 },
-  meta: { fontSize: 12, color: Colors.placeholder },
-  metaOpen: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginTop: 2 },
+  voidNote: { ...Type.caption, color: Colors.textMuted, marginTop: 2 },
+  meta: { ...Type.caption, color: Colors.textMuted },
+  metaOpen: { ...Type.caption, fontFamily: undefined, fontWeight: '700', color: Colors.primary, marginTop: 2 },
 
   actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   acceptBtn: {
     flex: 1, backgroundColor: Colors.primary,
-    borderRadius: 10, paddingVertical: 10, alignItems: 'center',
-    shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderRadius: Radius.md, height: 42, alignItems: 'center', justifyContent: 'center',
   },
-  acceptBtnText: { fontSize: 14, fontWeight: '900', color: '#fff' },
+  acceptBtnText: { ...Type.button, color: Colors.white },
   cancelBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: Colors.border,
-    borderRadius: 10, paddingVertical: 10, alignItems: 'center',
+    flex: 1, borderWidth: 1.5, borderColor: Colors.borderStrong,
+    borderRadius: Radius.md, height: 42, alignItems: 'center', justifyContent: 'center',
   },
-  cancelBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textSub },
+  cancelBtnText: { ...Type.button, color: Colors.textSub },
 });
