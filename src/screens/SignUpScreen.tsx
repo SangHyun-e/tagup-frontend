@@ -164,9 +164,10 @@ export default function SignUpScreen() {
             })}
           </View>
           {selectedTeam && (
-            <Text style={styles.selectedTeamText}>
-              {selectedTeam.emoji} {selectedTeam.name} 선택됨
-            </Text>
+            <View style={styles.selectedTeamRow}>
+              <TeamEmblem shortName={selectedTeam.shortName} size={22} />
+              <Text style={styles.selectedTeamText}>{selectedTeam.name} 선택됨</Text>
+            </View>
           )}
         </View>
 
@@ -263,6 +264,7 @@ const styles = StyleSheet.create({
   teamNameSelected: {
     color: Colors.primary,
   },
+  selectedTeamRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
   selectedTeamText: {
     fontSize: 12,
     color: Colors.primary,

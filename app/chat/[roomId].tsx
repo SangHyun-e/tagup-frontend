@@ -333,7 +333,6 @@ export default function ChatScreen() {
         roomId,
         senderId: firebaseUser.uid,
         senderNickname: appUser?.nickname ?? '알 수 없음',
-        senderTeamEmoji: appUser?.team?.emoji ?? null,
         senderTeamShort: appUser?.team?.shortName ?? null,
         content: trimmed,
         type: 'TEXT',
@@ -368,7 +367,7 @@ export default function ChatScreen() {
   const handleBetCreated = (bet: Bet) => {
     addBet(bet);
     announceBetEvent(
-      `⚾ ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${betTargetText(bet)}`,
+      `${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${betTargetText(bet)}`,
       bet.id,
     );
   };
@@ -379,7 +378,7 @@ export default function ChatScreen() {
       updateBet(updated);
       const opposite = oppositeSideOf(updated);
       announceBetEvent(
-        `📣 ${updated.receiver?.nickname}님이 콜! 배팅 성립\n${updated.proposer.nickname}(${mySideOf(updated)}) vs ${updated.receiver?.nickname}(${opposite}) · "${updated.content}"`,
+        `${updated.receiver?.nickname}님이 콜! 배팅 성립\n${updated.proposer.nickname}(${mySideOf(updated)}) vs ${updated.receiver?.nickname}(${opposite}) · "${updated.content}"`,
         updated.id,
       );
     } catch (e: any) {
@@ -391,7 +390,7 @@ export default function ChatScreen() {
     try {
       const updated = await api.put<Bet>(`/api/v1/bets/${betId}/cancel`, {});
       updateBet(updated);
-      announceBetEvent(`↩️ 내기가 취소됐어요 — "${updated.content}"`, updated.id);
+      announceBetEvent(`내기가 취소됐어요 — "${updated.content}"`, updated.id);
     } catch (e: any) {
       console.warn('cancel failed', e.message);
     }
@@ -433,7 +432,7 @@ export default function ChatScreen() {
       addBet(bet);
       if (latestAtBatStart) setBetAtBatMsgId(latestAtBatStart.id);
       await announceBetEvent(
-        `⚾ ${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${betTargetText(bet)}`,
+        `${bet.proposer.nickname}님이 배팅을 걸었어요 — 받을 사람 콜!\n"${bet.content}" · ${betTargetText(bet)}`,
         bet.id,
       );
     } catch (e: any) {
@@ -554,11 +553,10 @@ export default function ChatScreen() {
       : item.senderId !== next?.senderId;
 
     const avatarColor = getAvatarColor(item.senderId);
+    // 예전 메시지에는 팀 이모지가 박혀 있었다. 이제 엠블럼과 약칭으로만 보여준다
     const senderDisplay = item.senderTeamShort
       ? `${item.senderNickname} · ${item.senderTeamShort}`
-      : (item as any).senderTeamEmoji
-        ? `${(item as any).senderTeamEmoji} ${item.senderNickname}`
-        : item.senderNickname;
+      : item.senderNickname;
 
     return (
       <View style={[styles.msgRow, mine && styles.msgRowMine]}>
@@ -570,7 +568,7 @@ export default function ChatScreen() {
               ) : (
                 <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
                   <Text style={styles.avatarText}>
-                    {(item as any).senderTeamEmoji ?? item.senderNickname.slice(0, 1)}
+                    {item.senderNickname.slice(0, 1)}
                   </Text>
                 </View>
               )
@@ -650,7 +648,7 @@ export default function ChatScreen() {
             </View>
           ) : messages.length === 0 ? (
             <View style={styles.centered}>
-              <Text style={styles.emptyEmoji}>⚾</Text>
+              <Ionicons name="chatbubbles-outline" size={44} color={Colors.placeholder} />
               <Text style={styles.emptyText}>첫 번째 메시지를 보내보세요!</Text>
             </View>
           ) : (
@@ -724,7 +722,7 @@ export default function ChatScreen() {
             </View>
           ) : bets.length === 0 ? (
             <View style={styles.centered}>
-              <Text style={styles.emptyEmoji}>🤜</Text>
+              <Ionicons name="hand-right-outline" size={44} color={Colors.placeholder} />
               <Text style={styles.emptyText}>아직 내기가 없어요</Text>
               <Text style={styles.emptySubText}>채팅창 왼쪽 + 버튼으로 배팅을 걸어보세요</Text>
             </View>
