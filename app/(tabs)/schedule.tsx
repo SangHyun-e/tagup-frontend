@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   StyleSheet,
@@ -181,7 +182,7 @@ export default function ScheduleScreen() {
         </View>
       ) : games.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyEmoji}>⚾</Text>
+          <Ionicons name="calendar-outline" size={44} color={Colors.placeholder} />
           <Text style={styles.emptyText}>이 날은 경기가 없어요.</Text>
         </View>
       ) : (

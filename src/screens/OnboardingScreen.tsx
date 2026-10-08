@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   StyleSheet,
@@ -17,7 +18,7 @@ const { width } = Dimensions.get('window');
 
 interface Slide {
   id: string;
-  emoji: string;
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   description: string;
 }
@@ -25,19 +26,19 @@ interface Slide {
 const SLIDES: Slide[] = [
   {
     id: '1',
-    emoji: '⚾',
+    icon: 'people-outline',
     title: '더그아웃',
     description: '태그코드로 친구를 초대해\n우리만의 응원 공간을 만들어요.',
   },
   {
     id: '2',
-    emoji: '🎯',
+    icon: 'trophy-outline',
     title: '배팅',
     description: '경기 결과를 예측하고\n친구와 배팅으로 더 짜릿하게!',
   },
   {
     id: '3',
-    emoji: '🏷️',
+    icon: 'key-outline',
     title: '태그코드',
     description: '6자리 태그코드로 친구를 태그해\n같이 야구를 즐겨요.',
   },
@@ -64,7 +65,9 @@ export default function OnboardingScreen() {
 
   const renderSlide: ListRenderItem<Slide> = ({ item }) => (
     <View style={styles.slide}>
-      <Text style={styles.emoji}>{item.emoji}</Text>
+      <View style={styles.iconCircle}>
+        <Ionicons name={item.icon} size={44} color={Colors.primary} />
+      </View>
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.description}>{item.description}</Text>
     </View>
@@ -120,6 +123,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 40,
     gap: 16,
+  },
+  iconCircle: {
+    width: 104, height: 104, borderRadius: 36,
+    backgroundColor: Colors.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 28,
   },
   emoji: {
     fontSize: 64,

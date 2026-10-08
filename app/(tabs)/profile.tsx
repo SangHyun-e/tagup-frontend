@@ -49,7 +49,7 @@ export default function ProfileScreen() {
           ) : (
             <>
               <View style={styles.emblemPlaceholder}>
-                <Text style={styles.emblemPlaceholderText}>⚾</Text>
+                <Ionicons name="shield-outline" size={26} color={Colors.placeholder} />
               </View>
               <Text style={[styles.teamName, { color: Colors.textSub }]}>구단 미설정</Text>
             </>

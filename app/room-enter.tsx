@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from '../src/components/common/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -46,7 +47,7 @@ export default function RoomEnterScreen() {
   if (error) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorEmoji}>😢</Text>
+        <Ionicons name="alert-circle-outline" size={44} color={Colors.placeholder} />
         <Text style={styles.errorText}>{error}</Text>
         <Text style={styles.sub} onPress={() => router.replace('/(tabs)')}>
           홈으로 돌아가기

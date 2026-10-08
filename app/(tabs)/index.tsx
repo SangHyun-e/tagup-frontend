@@ -315,9 +315,9 @@ export default function MainHomeScreen() {
 
           {rooms.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>⚾</Text>
-              <Text style={styles.emptyText}>참여 중인 더그아웃이 없어요</Text>
-              <Text style={styles.emptySubtext}>태그업 하기로 새 더그아웃을 만들어보세요!</Text>
+              <Ionicons name="people-outline" size={44} color={Colors.placeholder} />
+              <Text style={styles.emptyText}>아직 혼자 보고 계시네요</Text>
+              <Text style={styles.emptySubtext}>친구 불러서 같이 봐요</Text>
             </View>
           ) : (
             <View style={styles.roomList}>

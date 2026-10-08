@@ -12,7 +12,6 @@ export interface Team {
   id: number;
   name: string;
   shortName: string;
-  emoji: string;
   primaryColor: string;
 }
 
@@ -69,7 +68,6 @@ export interface ChatMessage {
   roomId: string;
   senderId: string; // 시스템 안내 메시지는 'system'
   senderNickname: string;
-  senderTeamEmoji?: string;
   senderTeamShort?: string | null; // 발신 시점의 응원 구단 (엠블럼 표시용)
   content: string;
   /** 'LIVE' = 서버가 보내는 실시간 중계 (타석 시작/결과) */
