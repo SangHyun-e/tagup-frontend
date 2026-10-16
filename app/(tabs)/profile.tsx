@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text } from '../../src/components/common/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import { unregisterPushToken } from '../../src/lib/push';
 import { auth } from '../../src/lib/firebase';
+import { api } from '../../src/lib/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { Colors } from '../../src/constants/colors';
 import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
@@ -22,6 +23,37 @@ export default function ProfileScreen() {
     await signOut(auth);
     reset();
     router.replace('/login');
+  };
+
+  /**
+   * 계정 삭제. 되돌릴 수 없으므로 두 번 묻는다.
+   *
+   * 기록에는 "탈퇴한 사용자"로 남는다 — 함께 건 내기가 상대방 쪽에서 깨지지 않게 하기 위해서다.
+   * 그 사실을 미리 알려야 나중에 "왜 내 이름이 남아 있냐"는 오해가 없다.
+   */
+  const handleWithdraw = () => {
+    Alert.alert(
+      '정말 탈퇴하시겠어요?',
+      '계정과 개인정보가 삭제되고 되돌릴 수 없어요.\n' +
+        '함께 건 내기 기록에는 "탈퇴한 사용자"로 남아요.',
+      [
+        { text: '아니요', style: 'cancel' },
+        {
+          text: '탈퇴하기',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete('/api/v1/users/me');
+              await signOut(auth);
+              reset();
+              router.replace('/login');
+            } catch (e: any) {
+              Alert.alert('탈퇴하지 못했어요', e?.message ?? '잠시 후 다시 시도해주세요.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -61,11 +93,31 @@ export default function ProfileScreen() {
             <Text style={styles.changeButtonText}>{myTeam ? '변경' : '설정'}</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => router.push('/blocked-users')}
+          accessibilityRole="button"
+        >
+          <Ionicons name="person-remove-outline" size={20} color={Colors.textSub} />
+          <Text style={styles.menuText}>차단한 사용자</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.placeholder} />
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>로그아웃</Text>
-      </TouchableOpacity>
+      <View style={styles.bottomArea}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>로그아웃</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.withdrawButton}
+          onPress={handleWithdraw}
+          accessibilityRole="button"
+          accessibilityLabel="계정 삭제"
+        >
+          <Text style={styles.withdrawText}>계정 삭제</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -152,6 +204,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
   },
+  menuRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 14, paddingHorizontal: 16,
+    borderWidth: 1, borderColor: Colors.border, borderRadius: 16,
+    backgroundColor: Colors.white,
+  },
+  menuText: { flex: 1, fontSize: 14.5, fontWeight: '700', color: Colors.dark },
+  bottomArea: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
+  withdrawButton: { alignItems: 'center', paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
+  withdrawText: { fontSize: 13, color: Colors.placeholder },
   logoutButton: {
     marginHorizontal: 20,
     marginBottom: 16,
