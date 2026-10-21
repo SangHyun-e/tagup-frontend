@@ -97,10 +97,15 @@ export default function SignUpScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로"
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>회원가입</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">회원가입</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -110,7 +115,7 @@ export default function SignUpScreen() {
         showsVerticalScrollIndicator={false}
       >
         {errors.general && (
-          <View style={styles.errorBanner}>
+          <View style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
             <Text style={styles.errorBannerText}>{errors.general}</Text>
           </View>
         )}
@@ -144,7 +149,11 @@ export default function SignUpScreen() {
 
         <View style={styles.teamSection}>
           <Text style={styles.teamLabel}>내 팀 선택 *</Text>
-          {errors.team && <Text style={styles.teamError}>{errors.team}</Text>}
+          {errors.team && (
+            <Text style={styles.teamError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              {errors.team}
+            </Text>
+          )}
           <View style={styles.teamGrid}>
             {KBO_TEAMS.map((team) => {
               const isSelected = selectedTeam?.id === team.id;
@@ -154,6 +163,9 @@ export default function SignUpScreen() {
                   style={[styles.teamCell, isSelected && styles.teamCellSelected]}
                   onPress={() => setSelectedTeam(team)}
                   activeOpacity={0.7}
+                  accessibilityRole="radio"
+                  accessibilityLabel={team.name}
+                  accessibilityState={{ selected: isSelected, checked: isSelected }}
                 >
                   <TeamEmblem shortName={team.shortName} size={44} />
                   <Text style={[styles.teamName, isSelected && styles.teamNameSelected]}>
@@ -200,7 +212,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     width: 40,
-    height: 40,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

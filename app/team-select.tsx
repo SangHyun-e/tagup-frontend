@@ -59,6 +59,10 @@ export default function TeamSelectScreen() {
         style={[styles.teamCard, selected && styles.teamCardSelected]}
         onPress={() => setSelectedId(item.id)}
         activeOpacity={0.7}
+        accessibilityRole="radio"
+        accessibilityLabel={item.name}
+        // 고른 구단이 테두리·체크 배지로만 표시된다. 소리로도 알려야 한다
+        accessibilityState={{ selected, checked: selected }}
       >
         {selected && (
           <View style={styles.checkBadge}>
@@ -76,14 +80,23 @@ export default function TeamSelectScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로"
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>응원 구단 설정</Text>
+        <Text style={styles.title} accessibilityRole="header">응원 구단 설정</Text>
         <TouchableOpacity
           style={[styles.saveBtn, (selectedId === null || saving) && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={selectedId === null || saving}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="저장"
+          accessibilityState={{ disabled: selectedId === null || saving, busy: saving }}
         >
           {saving ? (
             <ActivityIndicator size="small" color={Colors.white} />
@@ -123,14 +136,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  backBtn: { width: 40, alignItems: 'center' },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1, fontSize: 15, fontWeight: '800', color: Colors.dark, textAlign: 'center' },
   saveBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 8,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    minHeight: 36,
     minWidth: 48,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   saveBtnDisabled: { backgroundColor: Colors.placeholder },

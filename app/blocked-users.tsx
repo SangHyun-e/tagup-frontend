@@ -61,7 +61,7 @@ export default function BlockedUsersScreen() {
         >
           <Ionicons name="chevron-back" size={24} color={Colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>차단한 사용자</Text>
+        <Text style={styles.title} accessibilityRole="header">차단한 사용자</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -88,6 +88,7 @@ export default function BlockedUsersScreen() {
               <TouchableOpacity
                 style={styles.unblockButton}
                 onPress={() => handleUnblock(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.nickname} 차단 해제`}
               >

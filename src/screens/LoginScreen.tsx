@@ -6,17 +6,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Text } from '../components/common/Text';
 import LogoBubble from '../../assets/images/tagup_logo_bubble.svg';
 import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../lib/api';
 import { Button } from '../components/common/Button';
 import { InputField } from '../components/common/InputField';
 import { Colors } from '../constants/colors';
+import { Spacing, Type } from '../constants/theme';
 import { User } from '../types';
 
 export default function LoginScreen() {
@@ -26,6 +28,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
 
   const validate = () => {
@@ -64,6 +67,41 @@ export default function LoginScreen() {
     }
   };
 
+  /**
+   * 비밀번호 재설정 메일 보내기.
+   *
+   * 결과 문구를 성공·실패 구분 없이 똑같이 띄운다. "그런 계정 없어요"라고 알려주면
+   * 아무나 이메일을 넣어보며 <b>가입자 명단을 캐낼 수 있다.</b>
+   */
+  const handleResetPassword = async () => {
+    const target = email.trim();
+    if (!target) {
+      setErrors({ email: '비밀번호를 찾으려면 이메일을 먼저 입력해주세요.' });
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(target)) {
+      setErrors({ email: '올바른 이메일 형식이 아닙니다.' });
+      return;
+    }
+
+    setErrors({});
+    setSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, target);
+    } catch (err: any) {
+      // 계정 없음(auth/user-not-found)도 조용히 넘긴다 — 아래 안내는 어느 쪽이든 같다
+      if (err?.code !== 'auth/user-not-found' && err?.code !== 'auth/invalid-email') {
+        console.warn('[Reset Password]', err?.code, err?.message);
+      }
+    } finally {
+      setSendingReset(false);
+      Alert.alert(
+        '메일을 보냈어요',
+        `${target} 으로 비밀번호 재설정 링크를 보냈어요.\n메일이 안 보이면 스팸함도 확인해주세요.`,
+      );
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -74,7 +112,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoArea}>
+        <View style={styles.logoArea} accessible accessibilityRole="header">
           <LogoBubble width={48} height={48} />
           <Text style={styles.appName}>태그업</Text>
           <Text style={styles.slogan}>같이 보는 야구의 맛</Text>
@@ -82,7 +120,7 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           {errors.general && (
-            <View style={styles.errorBanner}>
+            <View style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
               <Text style={styles.errorBannerText}>{errors.general}</Text>
             </View>
           )}
@@ -94,6 +132,7 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             error={errors.email}
+            textContentType="emailAddress"
           />
 
           <InputField
@@ -103,6 +142,7 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             secureTextEntry
             error={errors.password}
+            textContentType="password"
           />
 
           <Button label="로그인" onPress={handleLogin} loading={loading} style={styles.mt8} />
@@ -114,8 +154,18 @@ export default function LoginScreen() {
             disabled={loading}
           />
 
-          <TouchableOpacity style={styles.forgotButton}>
-            <Text style={styles.forgotText}>비밀번호 찾기</Text>
+          <TouchableOpacity
+            style={styles.forgotButton}
+            onPress={handleResetPassword}
+            disabled={sendingReset || loading}
+            accessibilityRole="button"
+            accessibilityLabel="비밀번호 찾기"
+            accessibilityHint="입력한 이메일로 재설정 링크를 보내요"
+            accessibilityState={{ disabled: sendingReset || loading, busy: sendingReset }}
+          >
+            <Text style={styles.forgotText}>
+              {sendingReset ? '메일 보내는 중…' : '비밀번호 찾기'}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -137,39 +187,40 @@ const styles = StyleSheet.create({
   },
   logoArea: {
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   appName: {
+    ...Type.sectionTitle,
     fontSize: 20,
-    fontWeight: '800',
     color: Colors.dark,
   },
   slogan: {
-    fontSize: 12,
+    ...Type.caption,
     color: Colors.textSub,
   },
   form: {
-    gap: 12,
+    gap: Spacing.md,
   },
   errorBanner: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: Colors.outSoft,
     borderRadius: 10,
-    padding: 12,
+    padding: Spacing.md,
   },
   errorBannerText: {
-    fontSize: 13,
+    ...Type.caption,
     color: Colors.fail,
     textAlign: 'center',
   },
   mt8: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   forgotButton: {
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    minHeight: 44,
   },
   forgotText: {
-    fontSize: 13,
-    color: Colors.placeholder,
+    ...Type.caption,
+    color: Colors.textMuted,
   },
 });
