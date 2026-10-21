@@ -67,6 +67,8 @@ export interface ChatMessage {
   id: string;
   roomId: string;
   senderId: string; // 시스템 안내 메시지는 'system'
+  /** 우리 DB 의 유저 id. 2026-10-16 이전 메시지에는 없다 (차단·신고 식별에 쓴다) */
+  senderUserId?: number | null;
   senderNickname: string;
   senderTeamShort?: string | null; // 발신 시점의 응원 구단 (엠블럼 표시용)
   content: string;
@@ -99,6 +101,16 @@ export interface LiveRelay {
   runsScored?: number;
   endedInning?: boolean;
 }
+
+/** 내가 차단한 사람 (BE SafetyController) */
+export interface BlockedUser {
+  userId: number;
+  nickname: string;
+  blockedAt: string;
+}
+
+/** 신고 사유 — BE ReportReason 과 1:1 */
+export type ReportReason = 'ABUSE' | 'SEXUAL' | 'SPAM' | 'MONEY_BETTING' | 'ETC';
 
 export interface RoomMember {
   id: number;

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Text } from '../../src/components/common/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   collection,
@@ -29,11 +29,12 @@ import { useRoomStore } from '../../src/store/useRoomStore';
 import { useBetStore } from '../../src/store/useBetStore';
 import { Colors } from '../../src/constants/colors';
 import { Radius, Spacing, Type } from '../../src/constants/theme';
-import { ChatMessage, Bet, Room, AtBatResult } from '../../src/types';
+import { ChatMessage, Bet, Room, AtBatResult, ReportReason } from '../../src/types';
 import { BetSheet } from '../../src/components/BetSheet';
 import { api } from '../../src/lib/api';
 import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
 import { LiveRelayLine } from '../../src/components/chat/LiveRelayLine';
+import { ReportSheet } from '../../src/components/chat/ReportSheet';
 
 const AVATAR_COLORS = ['#4C82F7', '#FF6FA5', '#34C759', '#5B8DEF', '#FF9F0A', '#AF52DE', '#FC4E00', '#00BCD4'];
 function getAvatarColor(uid: string): string {
@@ -271,6 +272,8 @@ export default function ChatScreen() {
 
   const [tab, setTab] = useState<TabType>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [blockedIds, setBlockedIds] = useState<number[]>([]);
+  const [reportTarget, setReportTarget] = useState<ChatMessage | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -332,6 +335,9 @@ export default function ChatScreen() {
       await addDoc(collection(db, 'rooms', chatKey, 'messages'), {
         roomId,
         senderId: firebaseUser.uid,
+        // 차단·신고는 우리 DB 의 유저 id 로 한다. Firebase uid 만으로는 누구인지 모른다.
+        // 2026-10-16 이전 메시지에는 없어서, 그 메시지는 가리거나 신고할 수 없다
+        senderUserId: appUser?.id ?? null,
         senderNickname: appUser?.nickname ?? '알 수 없음',
         senderTeamShort: appUser?.team?.shortName ?? null,
         content: trimmed,
@@ -443,9 +449,67 @@ export default function ChatScreen() {
     }
   };
 
+  // 차단한 사람의 메시지는 내 화면에서만 가린다. 상대는 계속 쓰고 차단당한 줄도 모른다
+  useFocusEffect(
+    useCallback(() => {
+      api
+        .get<{ userId: number }[]>('/api/v1/users/me/blocks')
+        .then((list) => setBlockedIds((list ?? []).map((b) => b.userId)))
+        .catch(() => {});
+    }, []),
+  );
+
+  const handleReport = async (reason: ReportReason, alsoBlock: boolean) => {
+    const target = reportTarget;
+    if (!target?.senderUserId) return;
+
+    try {
+      await api.post('/api/v1/reports', {
+        reportedUserId: target.senderUserId,
+        reason,
+        roomId: Number(roomId),
+        messageId: target.id,
+        // 서버는 Firestore 를 읽을 수 없다. 지워지기 전에 내용을 같이 보낸다
+        messageContent: target.content?.slice(0, 1000),
+      });
+
+      if (alsoBlock) {
+        await api.post(`/api/v1/users/me/blocks/${target.senderUserId}`, {});
+        setBlockedIds((prev) => [...prev, target.senderUserId!]);
+      }
+
+      setReportTarget(null);
+      Alert.alert('접수됐어요', alsoBlock ? '신고하고 차단했어요.' : '신고해주셔서 고마워요.');
+    } catch (e: any) {
+      Alert.alert('처리하지 못했어요', e?.message ?? '잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  const handleLeaveRoom = () => {
+    Alert.alert('더그아웃에서 나갈까요?', '다시 들어오려면 태그코드가 필요해요.', [
+      { text: '아니요', style: 'cancel' },
+      {
+        text: '나가기',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.delete(`/api/v1/rooms/${roomId}/members/me`);
+            router.replace('/(tabs)');
+          } catch (e: any) {
+            // 서버가 '정산 안 끝난 내기가 있다'를 구분해 알려준다
+            Alert.alert('나가지 못했어요', e?.message ?? '잠시 후 다시 시도해주세요.');
+          }
+        },
+      },
+    ]);
+  };
+
   const isMyMessage = (msg: ChatMessage) => msg.senderId === firebaseUser?.uid;
 
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
+    // 차단한 사람의 메시지는 그리지 않는다
+    if (item.senderUserId != null && blockedIds.includes(item.senderUserId)) return null;
+
     // 실시간 중계 (서버 발송) — 타석 시작에만 배팅 버튼을 붙인다
     if (item.type === 'LIVE') {
       const isStart = item.liveKind === 'AT_BAT_START';
@@ -558,8 +622,16 @@ export default function ChatScreen() {
       ? `${item.senderNickname} · ${item.senderTeamShort}`
       : item.senderNickname;
 
+    const canReport = !mine && item.senderUserId != null;
+
     return (
-      <View style={[styles.msgRow, mine && styles.msgRowMine]}>
+      <TouchableOpacity
+        style={[styles.msgRow, mine && styles.msgRowMine]}
+        activeOpacity={canReport ? 0.7 : 1}
+        onLongPress={canReport ? () => setReportTarget(item) : undefined}
+        delayLongPress={400}
+        accessibilityHint={canReport ? '길게 누르면 신고할 수 있어요' : undefined}
+      >
         {!mine && (
           <View style={styles.avatarSlot}>
             {showAvatar ? (
@@ -595,7 +667,7 @@ export default function ChatScreen() {
             )}
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -609,8 +681,21 @@ export default function ChatScreen() {
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{displayName}</Text>
         </View>
-        <View style={styles.backBtn} />
+        <TouchableOpacity
+          onPress={handleLeaveRoom}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="더그아웃 나가기"
+        >
+          <Ionicons name="exit-outline" size={22} color={Colors.textSub} />
+        </TouchableOpacity>
       </View>
+
+      <ReportSheet
+        message={reportTarget}
+        onClose={() => setReportTarget(null)}
+        onReport={handleReport}
+      />
 
       {/* 탭 스위처 */}
       <View style={styles.tabBar}>
