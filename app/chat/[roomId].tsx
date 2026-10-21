@@ -240,6 +240,9 @@ function BetCard({
               style={betStyles.acceptBtn}
               onPress={() => onAccept(bet.id)}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="콜하기"
+              accessibilityHint={`${bet.content} 내기를 받아요`}
             >
               <Text style={betStyles.acceptBtnText}>콜!</Text>
             </TouchableOpacity>
@@ -249,6 +252,8 @@ function BetCard({
               style={betStyles.cancelBtn}
               onPress={() => onCancel(bet.id)}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="내기 취소"
             >
               <Text style={betStyles.cancelBtnText}>취소</Text>
             </TouchableOpacity>
@@ -283,6 +288,7 @@ export default function ChatScreen() {
 
   const displayName = roomName ?? rooms.find((r) => String(r.id) === roomId)?.name ?? '더그아웃';
   const roomIdNum = Number(roomId);
+  const pendingCount = bets.filter((b) => b.status === 'PENDING').length;
 
   // 채팅 경로 키: 파라미터 → 스토어 → 방 상세 API 순으로 확보
   const [chatKey, setChatKey] = useState<string | null>(
@@ -541,6 +547,10 @@ export default function ChatScreen() {
                     onPress={() => handleAtBatBet('OUT')}
                     disabled={atBatSubmitting}
                     activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="아웃에 걸기"
+                    accessibilityHint={`${remainSec}초 남았어요. 판돈은 ${AT_BAT_DEFAULT_STAKE}`}
+                    accessibilityState={{ disabled: atBatSubmitting, busy: atBatSubmitting }}
                   >
                     <Ionicons name="close" size={16} color={Colors.out} />
                     <Text style={[styles.liveBetBtnText, { color: Colors.out }]}>아웃</Text>
@@ -550,12 +560,19 @@ export default function ChatScreen() {
                     onPress={() => handleAtBatBet('SAFE')}
                     disabled={atBatSubmitting}
                     activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="세이프에 걸기"
+                    accessibilityHint={`${remainSec}초 남았어요. 판돈은 ${AT_BAT_DEFAULT_STAKE}`}
+                    accessibilityState={{ disabled: atBatSubmitting, busy: atBatSubmitting }}
                   >
                     <Ionicons name="checkmark" size={16} color={Colors.safe} />
                     <Text style={[styles.liveBetBtnText, { color: Colors.safe }]}>세이프</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.liveCountdown}>
+                <Text
+                  style={styles.liveCountdown}
+                  accessibilityLabel={`${remainSec}초 남음, 판돈 ${AT_BAT_DEFAULT_STAKE}`}
+                >
                   {remainSec}초 남음 · {AT_BAT_DEFAULT_STAKE}
                 </Text>
               </>
@@ -587,6 +604,8 @@ export default function ChatScreen() {
                     style={styles.sysAcceptBtn}
                     onPress={() => handleAccept(linkedBet.id)}
                     activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="콜하기"
                   >
                     <Text style={styles.sysAcceptText}>콜!</Text>
                   </TouchableOpacity>
@@ -596,6 +615,8 @@ export default function ChatScreen() {
                     style={styles.sysCancelBtn}
                     onPress={() => handleCancel(linkedBet.id)}
                     activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="내기 취소"
                   >
                     <Text style={styles.sysCancelText}>취소</Text>
                   </TouchableOpacity>
@@ -675,11 +696,18 @@ export default function ChatScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로"
+        >
           <Ionicons name="chevron-back" size={24} color={Colors.dark} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{displayName}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} accessibilityRole="header">
+            {displayName}
+          </Text>
         </View>
         <TouchableOpacity
           onPress={handleLeaveRoom}
@@ -702,19 +730,25 @@ export default function ChatScreen() {
         <TouchableOpacity
           style={[styles.tabItem, tab === 'chat' && styles.tabItemActive]}
           onPress={() => setTab('chat')}
+          accessibilityRole="tab"
+          accessibilityLabel="채팅"
+          accessibilityState={{ selected: tab === 'chat' }}
         >
           <Text style={[styles.tabText, tab === 'chat' && styles.tabTextActive]}>채팅</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabItem, tab === 'bet' && styles.tabItemActive]}
           onPress={() => setTab('bet')}
+          accessibilityRole="tab"
+          accessibilityLabel={
+            pendingCount > 0 ? `내기, 콜 대기 ${pendingCount}건` : '내기'
+          }
+          accessibilityState={{ selected: tab === 'bet' }}
         >
           <Text style={[styles.tabText, tab === 'bet' && styles.tabTextActive]}>내기</Text>
-          {bets.filter((b) => b.status === 'PENDING').length > 0 && (
+          {pendingCount > 0 && (
             <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>
-                {bets.filter((b) => b.status === 'PENDING').length}
-              </Text>
+              <Text style={styles.tabBadgeText}>{pendingCount}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -753,6 +787,11 @@ export default function ChatScreen() {
               style={styles.plusBtn}
               activeOpacity={0.7}
               onPress={() => setPlusPanelOpen((v) => !v)}
+              // 34pt 라 손가락에는 작다. 입력칸을 밀어내지 않도록 닿는 범위만 넓힌다
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel={plusPanelOpen ? '더보기 닫기' : '더보기'}
+              accessibilityState={{ expanded: plusPanelOpen }}
             >
               <Ionicons name={plusPanelOpen ? 'close' : 'add'} size={22} color={Colors.textSub} />
             </TouchableOpacity>
@@ -767,11 +806,15 @@ export default function ChatScreen() {
               maxLength={500}
               returnKeyType="send"
               onSubmitEditing={sendMessage}
+              accessibilityLabel="메시지 입력"
             />
             <TouchableOpacity
               style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
               onPress={sendMessage}
               disabled={!text.trim() || sending}
+              accessibilityRole="button"
+              accessibilityLabel="보내기"
+              accessibilityState={{ disabled: !text.trim() || sending, busy: sending }}
             >
               <Ionicons name="arrow-up" size={18} color="#fff" />
             </TouchableOpacity>
@@ -787,6 +830,8 @@ export default function ChatScreen() {
                   setPlusPanelOpen(false);
                   setBetSheetVisible(true);
                 }}
+                accessibilityRole="button"
+                accessibilityLabel="배팅 걸기"
               >
                 <View style={styles.plusItemIcon}>
                   <Ionicons name="baseball-outline" size={26} color={Colors.primary} />
@@ -929,12 +974,12 @@ const styles = StyleSheet.create({
   sysMsgActions: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   sysAcceptBtn: {
     backgroundColor: Colors.primary, borderRadius: Radius.md,
-    paddingHorizontal: 22, height: 38, justifyContent: 'center',
+    paddingHorizontal: 22, minHeight: 44, justifyContent: 'center',
   },
   sysAcceptText: { ...Type.button, fontSize: 13, color: Colors.white },
   sysCancelBtn: {
     backgroundColor: Colors.white, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.borderStrong,
-    paddingHorizontal: 22, height: 38, justifyContent: 'center',
+    paddingHorizontal: 22, minHeight: 44, justifyContent: 'center',
   },
   sysCancelText: { ...Type.button, fontSize: 13, color: Colors.textSub },
   msgRowMine: { flexDirection: 'row-reverse' },
@@ -999,7 +1044,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
   },
   input: {
-    flex: 1, height: 42,
+    flex: 1, height: 44,
     backgroundColor: Colors.surface,
     borderRadius: 999,
     paddingHorizontal: 16, paddingVertical: 10,
@@ -1007,7 +1052,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
   },
   sendBtn: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
@@ -1048,12 +1093,12 @@ const betStyles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   acceptBtn: {
     flex: 1, backgroundColor: Colors.primary,
-    borderRadius: Radius.md, height: 42, alignItems: 'center', justifyContent: 'center',
+    borderRadius: Radius.md, minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   acceptBtnText: { ...Type.button, color: Colors.white },
   cancelBtn: {
     flex: 1, borderWidth: 1.5, borderColor: Colors.borderStrong,
-    borderRadius: Radius.md, height: 42, alignItems: 'center', justifyContent: 'center',
+    borderRadius: Radius.md, minHeight: 44, alignItems: 'center', justifyContent: 'center',
   },
   cancelBtnText: { ...Type.button, color: Colors.textSub },
 });

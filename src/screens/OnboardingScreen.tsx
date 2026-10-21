@@ -99,7 +99,12 @@ export default function OnboardingScreen() {
       <View style={styles.footer}>
         <Button label={currentIndex < SLIDES.length - 1 ? '다음' : '시작하기'} onPress={handleNext} />
         {currentIndex < SLIDES.length - 1 && (
-          <TouchableOpacity onPress={finishOnboarding} style={styles.skipButton}>
+          <TouchableOpacity
+            onPress={finishOnboarding}
+            style={styles.skipButton}
+            accessibilityRole="button"
+            accessibilityLabel="건너뛰기"
+          >
             <Text style={styles.skipText}>건너뛰기</Text>
           </TouchableOpacity>
         )}

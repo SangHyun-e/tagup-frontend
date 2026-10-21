@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Text } from '../../src/components/common/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { unregisterPushToken } from '../../src/lib/push';
+import { PushPermission, getPushPermission, unregisterPushToken } from '../../src/lib/push';
 import { auth } from '../../src/lib/firebase';
 import { api } from '../../src/lib/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { Colors } from '../../src/constants/colors';
+import { Radius, Spacing, Type } from '../../src/constants/theme';
 import { TeamEmblem } from '../../src/components/emblems/TeamEmblem';
 
 export default function ProfileScreen() {
@@ -17,6 +18,14 @@ export default function ProfileScreen() {
   const { appUser, reset } = useAuthStore();
 
   const myTeam = appUser?.team ?? null;
+  const [pushPermission, setPushPermission] = useState<PushPermission>('undetermined');
+
+  // 설정에서 알림을 켜고 돌아올 수 있으니 화면에 들어올 때마다 다시 읽는다
+  useFocusEffect(
+    useCallback(() => {
+      getPushPermission().then(setPushPermission);
+    }, []),
+  );
 
   const handleLogout = async () => {
     await unregisterPushToken();
@@ -59,14 +68,15 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>내 프로필</Text>
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons name="settings-outline" size={22} color={Colors.dark} />
-        </TouchableOpacity>
+        <Text style={styles.title} accessibilityRole="header">내 프로필</Text>
       </View>
 
       <View style={styles.content}>
-        <View style={styles.card}>
+        <View
+          style={styles.card}
+          accessible
+          accessibilityLabel={`${appUser?.nickname ?? '닉네임 없음'}, ${appUser?.email ?? '이메일 없음'}`}
+        >
           <Ionicons name="person-circle" size={64} color={Colors.textSub} />
           <Text style={styles.nickname}>{appUser?.nickname ?? '-'}</Text>
           <Text style={styles.email}>{appUser?.email ?? '-'}</Text>
@@ -89,6 +99,9 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.changeButton}
             onPress={() => router.push('/team-select')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={myTeam ? '응원 구단 변경' : '응원 구단 설정'}
           >
             <Text style={styles.changeButtonText}>{myTeam ? '변경' : '설정'}</Text>
           </TouchableOpacity>
@@ -96,8 +109,25 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.menuRow}
+          onPress={() => router.push('/notifications')}
+          accessibilityRole="button"
+          accessibilityLabel={`알림, 현재 ${pushPermission === 'granted' ? '켜짐' : '꺼짐'}`}
+        >
+          <Ionicons
+            name={pushPermission === 'granted' ? 'notifications' : 'notifications-off-outline'}
+            size={20}
+            color={Colors.textSub}
+          />
+          <Text style={styles.menuText}>알림</Text>
+          <Text style={styles.menuValue}>{pushPermission === 'granted' ? '켜짐' : '꺼짐'}</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.placeholder} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuRow}
           onPress={() => router.push('/blocked-users')}
           accessibilityRole="button"
+          accessibilityLabel="차단한 사용자"
         >
           <Ionicons name="person-remove-outline" size={20} color={Colors.textSub} />
           <Text style={styles.menuText}>차단한 사용자</Text>
@@ -106,7 +136,12 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.bottomArea}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          accessibilityRole="button"
+          accessibilityLabel="로그아웃"
+        >
           <Text style={styles.logoutText}>로그아웃</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -140,12 +175,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: Colors.dark,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     flex: 1,
@@ -185,7 +214,6 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
   },
-  emblemPlaceholderText: { fontSize: 26 },
   teamName: {
     flex: 1,
     fontSize: 14,
@@ -195,9 +223,10 @@ const styles = StyleSheet.create({
   changeButton: {
     borderWidth: 1.5,
     borderColor: Colors.primary,
-    borderRadius: 10,
+    borderRadius: Radius.sm,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   changeButtonText: {
     fontSize: 12,
@@ -205,12 +234,13 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   menuRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    minHeight: 52, paddingHorizontal: 16,
     borderWidth: 1, borderColor: Colors.border, borderRadius: 16,
     backgroundColor: Colors.white,
   },
-  menuText: { flex: 1, fontSize: 14.5, fontWeight: '700', color: Colors.dark },
+  menuText: { flex: 1, ...Type.itemTitle, color: Colors.dark },
+  menuValue: { ...Type.caption, color: Colors.textMuted },
   bottomArea: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
   withdrawButton: { alignItems: 'center', paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
   withdrawText: { fontSize: 13, color: Colors.placeholder },
@@ -220,7 +250,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: 14,
-    paddingVertical: 14,
+    minHeight: 48,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   logoutText: {

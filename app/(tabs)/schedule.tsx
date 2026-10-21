@@ -57,6 +57,28 @@ const STATUS_COLOR: Record<string, string> = {
   CANCELLED: Colors.placeholder,
 };
 
+/**
+ * 보이스오버가 읽을 경기 한 줄.
+ *
+ * 엠블럼 두 개와 숫자 세 덩어리를 따로 읽으면 무슨 경기인지 알 수 없어 문장으로 다시 쓴다.
+ */
+function gameLabel(game: Game): string {
+  const away = game.awayTeam.name ?? game.awayTeam.shortName;
+  const home = game.homeTeam.name ?? game.homeTeam.shortName;
+  const parts = [`${away} 대 ${home}`];
+
+  if (game.status === 'IN_PROGRESS' || game.status === 'FINISHED') {
+    parts.push(`${game.awayScore ?? 0} 대 ${game.homeScore ?? 0}`);
+  }
+  if (game.status === 'IN_PROGRESS' && game.inning != null) parts.push(`${game.inning}이닝 진행 중`);
+  else parts.push(STATUS_LABEL[game.status] === 'LIVE' ? '경기 중' : STATUS_LABEL[game.status]);
+
+  const time = game.gameTime ?? game.startTime;
+  if (game.status === 'SCHEDULED' && time) parts.push(`${time.slice(0, 5)} 시작`);
+  if (game.stadium) parts.push(game.stadium);
+  return parts.join(', ');
+}
+
 function GameCard({ game }: { game: Game }) {
   const live = game.status === 'IN_PROGRESS';
   const ended = game.status === 'FINISHED';
@@ -68,7 +90,7 @@ function GameCard({ game }: { game: Game }) {
   const homeWin = ended && homeScore > awayScore;
 
   return (
-    <View style={[styles.card, live && styles.cardLive]}>
+    <View style={[styles.card, live && styles.cardLive]} accessible accessibilityLabel={gameLabel(game)}>
       <View style={styles.teams}>
         {/* 원정 */}
         <View style={styles.teamBlock}>
@@ -151,7 +173,7 @@ export default function ScheduleScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>경기 일정</Text>
+        <Text style={styles.title} accessibilityRole="header">경기 일정</Text>
       </View>
 
       {/* 날짜 탭 */}
@@ -168,6 +190,10 @@ export default function ScheduleScreen() {
               key={dateStr}
               style={[styles.dateTab, active && styles.dateTabActive]}
               onPress={() => setSelectedDate(dateStr)}
+              accessibilityRole="tab"
+              accessibilityLabel={`${label} ${sub}`}
+              // 선택된 날짜를 색으로만 알리면 색을 못 보는 사람은 지금 어느 날인지 알 수 없다
+              accessibilityState={{ selected: active }}
             >
               <Text style={[styles.dateLabel, active && styles.dateLabelActive]}>{label}</Text>
               <Text style={[styles.dateSub, active && styles.dateSubActive]}>{sub}</Text>
@@ -238,7 +264,6 @@ const styles = StyleSheet.create({
 
   list: { padding: 16, gap: 12 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyEmoji: { fontSize: 40 },
   emptyText: { fontSize: 14, color: Colors.textSub },
 
   card: {
@@ -253,7 +278,6 @@ const styles = StyleSheet.create({
   teams: { flexDirection: 'row', alignItems: 'center' },
   teamBlock: { flex: 1, alignItems: 'center', gap: 4 },
   homeBlock: { flex: 1, alignItems: 'center' },
-  emoji: { fontSize: 26 },
   shortName: { fontSize: 13, fontWeight: '600', color: Colors.dark },
   winnerName: { fontWeight: '800', color: Colors.dark },
   center: { alignItems: 'center', gap: 6, paddingHorizontal: 8 },

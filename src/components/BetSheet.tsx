@@ -106,10 +106,16 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.sheet}>
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="닫기"
+        />
+        <View style={styles.sheet} accessibilityViewIsModal>
           <View style={styles.handle} />
-          <Text style={styles.title}>배팅 걸기</Text>
+          <Text style={styles.title} accessibilityRole="header">배팅 걸기</Text>
           <Text style={styles.subGuide}>더그아웃 전체에 공개돼요. 먼저 콜한 멤버와 성립!</Text>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -136,6 +142,10 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
                       style={[styles.gameCard, selected && styles.gameCardSelected]}
                       onPress={() => handleSelectGame(game)}
                       activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${game.awayTeam.shortName} 대 ${game.homeTeam.shortName}, ${game.stadium}`}
+                      // 선택 여부가 테두리 색으로만 드러난다
+                      accessibilityState={{ selected, checked: selected }}
                     >
                       <View style={styles.gameTeams}>
                         <TeamEmblem shortName={game.awayTeam.shortName} size={32} />
@@ -165,6 +175,9 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
                         style={[styles.teamPick, picked && styles.teamPickSelected]}
                         onPress={() => setSelectedTeam(team)}
                         activeOpacity={0.8}
+                        accessibilityRole="radio"
+                        accessibilityLabel={`${team.shortName} 응원`}
+                        accessibilityState={{ selected: picked, checked: picked }}
                       >
                         <TeamEmblem shortName={team.shortName} size={44} />
                         <Text style={[styles.teamPickName, picked && styles.teamPickNameSelected]}>
@@ -188,6 +201,9 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
                   key={q}
                   style={[styles.quickChip, content === q && styles.quickChipSelected]}
                   onPress={() => setContent(q)}
+                  accessibilityRole="button"
+                  accessibilityLabel={q}
+                  accessibilityState={{ selected: content === q }}
                 >
                   <Text style={[styles.quickChipText, content === q && styles.quickChipTextSelected]}>
                     {q}
@@ -202,6 +218,7 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
               placeholder="직접 입력… (예: 아침 커피)"
               placeholderTextColor={Colors.placeholder}
               maxLength={100}
+              accessibilityLabel="내기 내용"
             />
 
             {/* 제안 버튼 */}
@@ -210,6 +227,9 @@ export function BetSheet({ visible, onClose, roomId, onBetCreated }: Props) {
               onPress={handleSubmit}
               disabled={!canSubmit || submitting}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="배팅 걸기"
+              accessibilityState={{ disabled: !canSubmit || submitting, busy: submitting }}
             >
               {submitting ? (
                 <ActivityIndicator color="#fff" />
@@ -276,7 +296,7 @@ const styles = StyleSheet.create({
 
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   quickChip: {
-    paddingHorizontal: 12, paddingVertical: 7,
+    paddingHorizontal: 12, minHeight: 38, justifyContent: 'center',
     borderRadius: 999, borderWidth: 1.5, borderColor: Colors.border,
     backgroundColor: Colors.surface,
   },
@@ -285,14 +305,14 @@ const styles = StyleSheet.create({
   quickChipTextSelected: { color: Colors.primary },
   contentInput: {
     borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
+    paddingHorizontal: 14, paddingVertical: 12, minHeight: 46,
     fontSize: 14, color: Colors.dark, backgroundColor: Colors.surface,
     marginBottom: 20,
   },
 
   submitBtn: {
     backgroundColor: Colors.primary, borderRadius: 14,
-    paddingVertical: 15, alignItems: 'center',
+    paddingVertical: 15, minHeight: 50, justifyContent: 'center', alignItems: 'center',
     shadowColor: Colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },

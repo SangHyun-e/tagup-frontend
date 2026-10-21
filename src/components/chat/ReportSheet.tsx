@@ -44,11 +44,19 @@ export function ReportSheet({ message, onClose, onReport }: Props) {
 
   return (
     <Modal visible={!!message} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity style={styles.sheet} activeOpacity={1}>
+      <TouchableOpacity
+        style={styles.backdrop}
+        activeOpacity={1}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="닫기"
+      >
+        <TouchableOpacity style={styles.sheet} activeOpacity={1} accessibilityViewIsModal>
           <View style={styles.handle} />
 
-          <Text style={styles.title}>{message?.senderNickname}님을 신고할까요?</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {message?.senderNickname}님을 신고할까요?
+          </Text>
           {message ? (
             <Text style={styles.quoted} numberOfLines={2}>"{message.content}"</Text>
           ) : null}
@@ -62,6 +70,8 @@ export function ReportSheet({ message, onClose, onReport }: Props) {
                 onPress={() => submit(reason.value, false)}
                 disabled={submitting}
                 accessibilityRole="button"
+                accessibilityLabel={`${reason.label}(으)로 신고하기`}
+                accessibilityState={{ disabled: submitting, busy: submitting }}
               >
                 <Text style={styles.reasonText}>{reason.label}</Text>
                 <Ionicons name="chevron-forward" size={18} color={Colors.placeholder} />
@@ -74,6 +84,8 @@ export function ReportSheet({ message, onClose, onReport }: Props) {
             onPress={() => submit('ABUSE', true)}
             disabled={submitting}
             accessibilityRole="button"
+            accessibilityLabel="신고하고 차단하기"
+            accessibilityState={{ disabled: submitting, busy: submitting }}
           >
             <Ionicons name="person-remove-outline" size={18} color={Colors.out} />
             <Text style={styles.blockText}>신고하고 차단하기</Text>

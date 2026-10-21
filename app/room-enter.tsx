@@ -48,8 +48,15 @@ export default function RoomEnterScreen() {
     return (
       <View style={styles.container}>
         <Ionicons name="alert-circle-outline" size={44} color={Colors.placeholder} />
-        <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.sub} onPress={() => router.replace('/(tabs)')}>
+        <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+        <Text
+          style={styles.sub}
+          onPress={() => router.replace('/(tabs)')}
+          accessibilityRole="button"
+          accessibilityLabel="홈으로 돌아가기"
+        >
           홈으로 돌아가기
         </Text>
       </View>
@@ -67,7 +74,6 @@ export default function RoomEnterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, backgroundColor: Colors.background },
   loadingText: { fontSize: 14, fontWeight: '600', color: Colors.textSub },
-  errorEmoji: { fontSize: 40 },
   errorText: { fontSize: 14, fontWeight: '700', color: Colors.fail, textAlign: 'center', paddingHorizontal: 32 },
   sub: { fontSize: 13, color: Colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
 });

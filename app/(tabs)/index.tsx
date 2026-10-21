@@ -61,7 +61,13 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
   const time = ((game as any).gameTime ?? game.startTime ?? '').slice(0, 5);
 
   return (
-    <View style={[styles.heroCard, live && styles.heroCardLive]}>
+    <View
+      style={[styles.heroCard, live && styles.heroCardLive]}
+      // 카드를 한 덩어리로 묶는다. 묶지 않으면 보이스오버가 "7회초", "두산", "3", ":", "5" 를
+      // 따로따로 읽어 무슨 경기인지 알 수 없다
+      accessible
+      accessibilityLabel={gameCardLabel(game, { live, ended, awayScore, homeScore, hasMyTeam, myTeam })}
+    >
       {/* 상단 상태 */}
       <View style={styles.heroTop}>
         {live ? (
@@ -128,6 +134,45 @@ function HeroGameCard({ game, myTeamShortName }: { game: Game; myTeamShortName?:
   );
 }
 
+/**
+ * 보이스오버가 읽을 경기 카드 한 줄.
+ *
+ * 눈으로는 엠블럼·점수·배지가 한눈에 들어오지만, 소리로는 순서대로 하나씩 들린다.
+ * 그래서 "누구 대 누구, 몇 대 몇, 몇 회" 순으로 문장처럼 다시 쓴다.
+ */
+function gameCardLabel(
+  game: Game,
+  ctx: {
+    live: boolean;
+    ended: boolean;
+    awayScore?: number | null;
+    homeScore?: number | null;
+    hasMyTeam: boolean;
+    myTeam: Game['awayTeam'];
+  },
+): string {
+  const { live, ended, awayScore, homeScore, hasMyTeam, myTeam } = ctx;
+  const away = game.awayTeam.name ?? game.awayTeam.shortName;
+  const home = game.homeTeam.name ?? game.homeTeam.shortName;
+
+  const parts = [`${away} 대 ${home}`];
+  if (awayScore != null && homeScore != null) parts.push(`${awayScore} 대 ${homeScore}`);
+
+  if (live) {
+    parts.push(game.live?.inning ? liveLabel(game) : '경기 중');
+    if (game.live) parts.push(situationLine(game.live));
+  } else if (ended) {
+    parts.push('경기 종료');
+  } else {
+    const time = ((game as any).gameTime ?? game.startTime ?? '').slice(0, 5);
+    parts.push(time ? `오늘 ${time} 시작` : '경기 예정');
+  }
+
+  if (game.stadium) parts.push(game.stadium);
+  if (hasMyTeam) parts.push(`내 팀은 ${myTeam.shortName}`);
+  return parts.join(', ');
+}
+
 /** "7회초 · 2아웃" 같은 상단 배지 문구 */
 function liveLabel(game: Game): string {
   const state = game.live;
@@ -155,7 +200,19 @@ function RoomListItem({ room, liveGameIds, onPress }: { room: Room; liveGameIds:
   const initial = room.name.slice(0, 1);
 
   return (
-    <TouchableOpacity style={styles.roomItem} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.roomItem}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={[
+        room.name,
+        `${room.memberCount}명`,
+        isLive ? '경기 중' : null,
+        `태그코드 ${room.tagCode}`,
+      ].filter(Boolean).join(', ')}
+      accessibilityHint="눌러서 더그아웃에 들어가요"
+    >
       <View style={styles.roomAvatarWrap}>
         <View style={[styles.roomAvatar, { backgroundColor: color }]}>
           <Text style={styles.roomAvatarText}>{initial}</Text>
@@ -266,7 +323,12 @@ export default function MainHomeScreen() {
           <LogoBubble width={26} height={26} />
           <Text style={styles.headerTitle}>태그업</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={styles.iconButton}>
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/profile')}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="내 프로필"
+        >
           <Ionicons name="person-circle-outline" size={28} color={Colors.dark} />
         </TouchableOpacity>
       </View>
@@ -277,7 +339,12 @@ export default function MainHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* 인사말 — 응원팀과 그 팀 경기 상태에 따라 바뀐다 */}
-        <View style={styles.greetingRow}>
+        <View
+          style={styles.greetingRow}
+          accessible
+          accessibilityRole="header"
+          accessibilityLabel={`${greeting.title} ${greeting.subtitle}`}
+        >
           <Text style={styles.greeting}>{greeting.title}</Text>
           <Text style={styles.greetingSub}>{greeting.subtitle}</Text>
         </View>
@@ -300,14 +367,27 @@ export default function MainHomeScreen() {
         <View>
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>내 더그아웃</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => setModal('create')}>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setModal('create')}
+              // 알약 모양을 44pt 로 키우면 제목 줄이 두꺼워진다. 보이는 크기는 두고
+              // 손가락이 닿는 범위만 넓힌다
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="더그아웃 만들기"
+            >
               <Ionicons name="add" size={14} color={Colors.primary} />
               <Text style={styles.addButtonText}>더그아웃 만들기</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.tagCodeRow}>
-            <TouchableOpacity style={styles.tagCodeBtn} onPress={() => setModal('join')}>
+            <TouchableOpacity
+              style={styles.tagCodeBtn}
+              onPress={() => setModal('join')}
+              accessibilityRole="button"
+              accessibilityLabel="태그코드로 들어가기"
+            >
               <Ionicons name="key-outline" size={15} color={Colors.textSub} />
               <Text style={styles.tagCodeBtnText}>코드로 들어가기</Text>
             </TouchableOpacity>
@@ -333,8 +413,8 @@ export default function MainHomeScreen() {
       </ScrollView>
 
       {/* 방 만들기 모달 */}
-      <Modal visible={modal === 'create'} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal visible={modal === 'create'} transparent animationType="slide" onRequestClose={closeModal}>
+        <View style={styles.modalOverlay} accessibilityViewIsModal>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>새 더그아웃 만들기</Text>
@@ -346,15 +426,24 @@ export default function MainHomeScreen() {
               onChangeText={setRoomName}
               maxLength={30}
               autoFocus
+              accessibilityLabel="더그아웃 이름"
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancel} onPress={closeModal}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={closeModal}
+                accessibilityRole="button"
+                accessibilityLabel="취소"
+              >
                 <Text style={styles.modalCancelText}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalConfirm, (!roomName.trim() || submitting) && styles.modalConfirmDisabled]}
                 onPress={handleCreateRoom}
                 disabled={!roomName.trim() || submitting}
+                accessibilityRole="button"
+                accessibilityLabel="더그아웃 만들기"
+                accessibilityState={{ disabled: !roomName.trim() || submitting, busy: submitting }}
               >
                 {submitting ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.modalConfirmText}>만들기</Text>}
               </TouchableOpacity>
@@ -364,8 +453,8 @@ export default function MainHomeScreen() {
       </Modal>
 
       {/* 태그코드 입장 모달 */}
-      <Modal visible={modal === 'join'} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal visible={modal === 'join'} transparent animationType="slide" onRequestClose={closeModal}>
+        <View style={styles.modalOverlay} accessibilityViewIsModal>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>태그코드로 입장</Text>
@@ -378,15 +467,24 @@ export default function MainHomeScreen() {
               maxLength={6}
               autoCapitalize="characters"
               autoFocus
+              accessibilityLabel="태그코드 6자리"
             />
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancel} onPress={closeModal}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={closeModal}
+                accessibilityRole="button"
+                accessibilityLabel="취소"
+              >
                 <Text style={styles.modalCancelText}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalConfirm, (!tagCode.trim() || submitting) && styles.modalConfirmDisabled]}
                 onPress={handleJoinRoom}
                 disabled={!tagCode.trim() || submitting}
+                accessibilityRole="button"
+                accessibilityLabel="입장"
+                accessibilityState={{ disabled: !tagCode.trim() || submitting, busy: submitting }}
               >
                 {submitting ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.modalConfirmText}>입장</Text>}
               </TouchableOpacity>
@@ -407,7 +505,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 17, fontWeight: '800', color: Colors.dark },
-  iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 
   scroll: { paddingBottom: 60, gap: 24, paddingTop: 20 },
 
@@ -480,7 +578,7 @@ const styles = StyleSheet.create({
   tagCodeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
+    paddingHorizontal: 14, minHeight: 44, justifyContent: 'center',
   },
   tagCodeBtnText: { fontSize: 13, fontWeight: '600', color: Colors.textSub },
 
@@ -511,7 +609,6 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: Colors.border, marginLeft: 78 },
 
   emptyState: { alignItems: 'center', paddingVertical: 36, gap: 8 },
-  emptyEmoji: { fontSize: 36 },
   emptyText: { fontSize: 14, fontWeight: '700', color: Colors.dark },
   emptySubtext: { fontSize: 12, color: Colors.textSub, textAlign: 'center' },
 
@@ -529,11 +626,14 @@ const styles = StyleSheet.create({
   },
   modalButtons: { flexDirection: 'row', gap: 10 },
   modalCancel: {
-    flex: 1, paddingVertical: 14, borderRadius: 14,
+    flex: 1, minHeight: 48, borderRadius: 14, justifyContent: 'center',
     borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center',
   },
   modalCancelText: { fontSize: 14, fontWeight: '700', color: Colors.textSub },
-  modalConfirm: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center' },
+  modalConfirm: {
+    flex: 1, minHeight: 48, borderRadius: 14, justifyContent: 'center',
+    backgroundColor: Colors.primary, alignItems: 'center',
+  },
   modalConfirmDisabled: { backgroundColor: Colors.placeholder },
   modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
